@@ -44,7 +44,7 @@ mutable struct HalfFace
     ### Attributes
     # Indices of the vertices belonging to the half-face
     vertices::Array{Int64}
-    # Index of the anchor vertex
+    # Local index of the anchor vertex
     anchor::Int64
 
     ### Constructor
@@ -200,7 +200,9 @@ mutable struct VolumeMesh{T<:Real}
         for cid in 1:n_cells, lid in 1:elem_dim
             hf = half_faces[cid][lid]
             twin_idx = circshift(get(vert_hf_map, reverse(hf.vertices), undef), 1)
-            if v2f[
+            if v2f[hf.vertex[hf.anchor]] == (0,0,0)
+            	v2f[hf.vertex[hf.anchor]] = (cid, lid, 1)
+            end 
             if twin_idx != undef
             else
             end
@@ -208,4 +210,3 @@ mutable struct VolumeMesh{T<:Real}
     end
     
 end
-
