@@ -1,376 +1,210 @@
 # Simple definitions for basic geometry structure
+# Following Alumbaugh et al. 2005 (Compact Array-Based Mesh Data Structures)
 
 using StaticArrays
 using LinearAlgebra
 
-# N-dimensional Vertex data with abstract Real type T
-mutable struct Vertex{N<:Int64, T<:Real}
-### Attributes
+# N-dimensional Vertex data
+mutable struct Vertex
+    ### Attributes
     # Positions of the vertex
-    x::SVector{N,T}
-    # Index of a half-edge going out of this vertex
-    half_edge::Int64
+    x::Array{Float64}
 
-### Constructors
-    function Vertex{N,T}(x::SVector{N,T}, half_edge::Int64) where {N<:Int64, T<:Real}
-    	@assert N >= 2 "Dimension cannot be less than 2"
+    ### Constructors
+    function Vertex(x::Array{Float64})
+        N = size(x,1)
+        @assert N >= 2 "Dimension cannot be less than 2"
     	@assert N <= 3 "Dimension cannot be larger than 3"
     	
-        new(x, half_edge)
+        new(x)
     end
 end
 
 # Half-edge connectivity data
 mutable struct HalfEdge
-### Attributes	
-	# Index of the half-edge after
-	next::Int64
-	# Index of the half-edge before
-	prev::Int64
-	# Index of the twin half-edge
-	twin::Int64
-	# Index of the Face that the half-edge belongs to
-	# (if the face is a hole, index -1)
-	face::Int64
-	# Index of the vertex the half-edge originates from
-	origin::Int64
-	# NOTE: Destination vertex index givin by 
-	# 		dest = he.next.origin
+    ### Attributes
+    # Index of the vertex the half-edge originates from
+    origin::Int64
+    # Index of the vertex the half-edge points to
+    dest::Int64
 
-### Constructors
-	function HalfEdge(
-		next::Int64,
-		prev::Int64,
-		twin::Int64,
-		face::Int64,
-		origin::Int64)
-		if next < 0 || pref < 0 || twin < 0 || origin < 0
-			error("Invalid indexing.")
-		end
-		new(next, prev, twin, face, origin)
+    ### Constructors
+    function HalfEdge(
+	origin::Int64,
+        dest::Int64)
+	if origin < 0 || dest < 0
+	    error("Invalid indexing.")
 	end
-end	
-
-# Face connectivity data for triangle topology
-mutable struct Face
-### Attributes
-	# The index of a half-edge belonging to this face
-	half_edge::Int64
-	#=
-    # Vertices Topology
-    topo::Tuple{Int64,Int64,Int64}
-    # Half-edge Topology
-    halfEdges::Tuple{Int64,Int64,Int64}
-	=#
-
-### Constructor
-	function Face(half_edge::Int64)
-		if half_edge < 0
-			error("invalid indexing")
-		end
-		new(half_edge)
-	end
-	#=
-    function Face(
-    	topo::Tuple{Int64,Int64,Int64},
-        halfEdges::Tuple{Node2d{T},Node2d{T},Node2d{T}} )
-    	if topo[1] <= 0 || topo[2] <= 0 || topo[3] <= 0
-    		error("Invalid vertex topology indexing")
-    	elseif halfEdges[1] <= 0 || halfEdges[2] <= 0 || halfEdges[3] <= 0
-    		error("Invalid half-edge topology indexing")
-    	end
-        new(topo, half-edges)
+	new(origin, dest)
     end
-    =#
 end
 
 # Half-Face connectivity data for volumetric mesh topology
 mutable struct HalfFace
-### Attributes
-	# Index of the half-edge after
-	next::Int64
-	# Index of the half-edge before
-	prev::Int64
-	# Index of the twin half-edge
-	twin::Int64
-	# The index of a half-edge belonging to this face
-	half_edge::Int64
-	# The index of the cell the half-face belongs to
-	# note: if the cell is a hole, then cell = -1
-	cell::Int64
+    ### Attributes
+    # Indices of the vertices belonging to the half-face
+    vertices::Array{Int64}
+    # Index of the anchor vertex
+    anchor::Int64
 
-### Constructor
-	function HalfFace(
-		next::Int64,
-		prev::Int64,
-		twin::Int64,
-		half_edge::Int64, 
-		cell::Int64)
-		if next < 0 || prev < 0 || twin < 0 || half_edge < 0 || cell < 0
-			error("invalid indexing")
-		end
-		new(next, prev, twin, half_edge, cell)
-	end
-end
-
-# Cell connectivity data 
-mutable struct Cell
-### Attributes
-	# The index of a half-face beloning to this cell
-	half_face::Int64
-
-### Constructor
-	function Cell(half_face::Int64)
-		if half_face < 0
-			error("invalid indexing")
-		end
-		new(half_face)
-	end
-end
-
-# Triangle mesh structure with dimensionality N
-mutable struct Trimesh{N<:Int64, T<:Real}
-### Attributes
-	# Number of vertices in the mesh
-    n_vertices::Int64
-    # Number of half-edges in the mesh
-    n_half_edges::Int64
-    # Number of faces in the mesh
-    n_faces::Int64
-    # Array of vertices in the mesh
-    vertices::Array{Vertex{N,T}}
-    # Array of half-edges in the mesh
-    half_edges::Array{HalfEdge}
-    # Array of faces in the mesh
-    faces::Array{Face}
-    # Array of boundary half-edge indices
-    boundary_edges_topo::Array{Int64}
-    # Adjacency list for vertices
-    adjacency_list::Array{Int64,2}
-
-### Constructor & check mesh sanity
-    function Trimesh(
-        vertices::Array{Vertex{N,T}},
-        half_edges::Array{HalfEdge},
-        faces::Array{Face} ) where {N<:Int64, T<:Real}
-    	# populate number of elements
-        n_vertices = size(vertices)
-        n_half_edges = size(half_edges)
-        n_faces = size(faces)
-
-        ### Check mesh sanity
-        # Check face.half_edge.face == face
-       	for fid in 1:n_faces
-       		face = faces[fid]
-       		he = half_edges[face.half_edge]
-       		@assert he.face == fid ("face " * fid * ": face.half_edge.face != face")
-   		end
-
-   		# Check if half-edges in a face construct a loop
-   		max_face_half_edges = 100
-   		for fid in 1:n_faces
-   			num_face_half_edges = 0
-   			face = faces[fid]
-   			he = face.half_edge
-   			he_end = face.half_edge
-   			while true
-   				num_face_half_edges += 1
-   				@assert num_face_half_edges < max_face_half_edges ("face " * fid * " has too many half-edges")
-   				he = half_edges[he].next
-   				he == he_end && break
-   			end
-   		end
-
-   		# Check mutual relationship between half-edges
-   		for heid in 1:n_half_edges
-   			he = half_edges[heid]
-   			@assert half_edges[he.twin].twin == heid ("half-edge " * heid * " != he.twin.twin")
-   			@assert half_edges[he.next].prev == heid ("half-edge " * heid * " != he.next.prev")
-   			@assert half_edges[he.prev].next == heid ("half-edge " * heid * " != he.prev.next")
-   			@assert he.twin != heid ("half-edge " * heid * " == he.twin")
-   			@assert he.prev != heid ("half-edge " * heid * " == he.prev")
-   			@assert he.next != heid ("half-edge " * heid * " == he.next")
-   		end
-
-   		# Vertices sanity check
-   		max_outgoing_half_edges = 100
-   		for vid in 1:n_vertices
-   			n_traversed_edges = 0
-   			vert = vertices[vid]
-   			is_vertex_visited = Zeros(Bool, n_vertices)
-   			boundary_flag = false
-
-   			# Vertex ring iteration
-   			ring_iter = half_edges[vert.half_edge].twin
-   			ri_0 = ring_iter
-   			while true
-   				other_vertex = half_edges[ring_iter].origin
-   				@assert half_edges[ring_iter].dest == vid ("ring_iter.dest != dest")
-   				@assert num_traversed_edges < max_outgoing_half_edges ("Too many half-edges in ring")
-   				@assert is_vertex_visited[other_vertex] == false ("More than one edge between two vertices")
-   				is_vertex_visited[other_vertex] = true
-   				num_traversed_edges += 1
-
-   				# populate adjacency list
-   				adjacency_list[vid, other_vertex] = 1
-
-   				ring_iter = half_edges[half_edges[ring_iter].next].twin
-   				ring_iter == ri_0 && break
-   			end
-   		end
-
-   		# Identify boundary half-edges
-   		for heid in 1:n_half_edges
-   			if half_edges[heid].face == -1
-   				bhe = heid
-   				do
-   					push!(boundary_edges_topo, bhe)
-   					bhe = half_edges[bhe].next
-	   				bhe == heid && break
-	   			end
-   				break
-   			end
-   		end
+    ### Constructor
+    function HalfFace(vertices::Array{Int64}, anchor::Int64)
+	new(vertices, anchor)
     end
 end
 
-
-# Tet mesh structure
-mutable struct Tetmesh{T<:Real}
-### Attributes
-	# Number of vertices in the mesh
+# Uniform surface mesh structure with dimensionality N
+# TODO: Support non-uniform mesh
+mutable struct Mesh
+    ### Attributes
+    # Number of vertices in the mesh
     n_vertices::Int64
-    # Number of half-edges in the mesh
-    n_half_edges::Int64
     # Number of faces in the mesh
-    n_half_faces::Int64
+    n_faces::Int64
+    # Number of boundary half-edges
+    n_boundary::Int64
+    # Array of vertices in the mesh
+    vertices::Array{Vertex}
+    # 2D Array of half-edges in the mesh indexed by [face id, local id])
+    half_edges::Array{Array{HalfEdge}}
+    # Array of boundary half-edges
+    # Element Connectivity Array
+    ec::Array{Int64,2}
+    # Map of vertex to half-edge originating from it
+    #   & Map of boundary vertex to boundary half-edge
+    v2e::Array{Tuple{Int64,Int64}}
+    # Map of internal half-edge to its twin half-edge
+    e2e::Array{Tuple{Int64,Int64},2}
+    # Map of boundary half-edge to its twin internal half-edge
+    b2e::Array{Tuple{Int64,Int64}}
+    
+    ### Constructor & check mesh sanity
+    function Mesh(
+        vertices::Array{Vertex},
+        ec::Array{Int64,2} )
+    	# populate number of elements
+        n_vertices = size(vertices,1)
+        n_faces = size(ec,1)
+        elem_dim = size(ec,2)
+        
+        # Populate half-edge array
+        vert_he_map = Tuple{Int64,Int64}[(0,0) for i in 1:n_vertices, j in 1:n_vertices]
+        half_edges = Vector{Vector{HalfEdge}}()
+        for fid in 1:n_faces
+            face_half_edges = Array{HalfEdge}(undef, elem_dim)
+            for lid in 1:elem_dim
+                he = HalfEdge(ec[fid, lid], ec[fid, mod(lid, elem_dim)+1])
+                face_half_edges[lid] = he
+                vert_he_map[ec[fid,lid], ec[fid,mod(lid, elem_dim)+1]] = (fid, lid)
+            end
+            push!(half_edges, face_half_edges)
+        end
+
+        # Populate half-edge - twin half-edge map
+        e2e = Tuple{Int64,Int64}[(0,0) for i in 1:n_faces, j in 1:elem_dim]
+        v2e = Tuple{Int64,Int64}[(0,0) for i in 1:n_vertices]
+        b2e = Tuple{Int64,Int64}[]
+        n_boundary = 0 # boundary edge count
+        for fid in 1:n_faces, lid in 1:elem_dim
+            he = half_edges[fid][lid]
+            twin_idx = vert_he_map[he.dest, he.origin]
+            if v2e[he.origin] == (0,0)
+                v2e[he.origin] = (fid,lid)
+            end
+            if twin_idx != (0,0)
+                e2e[fid,lid] = twin_idx
+            else
+                n_boundary += 1
+                bhe = HalfEdge(he.dest, he.origin)
+                if n_boundary <= size(half_edges,1)
+                    push!(half_edges[n_boundary], bhe)
+                else
+                    push!(half_edges, [bhe])
+                end
+                boundary_idx = (n_boundary,0)
+                e2e[fid,lid] = boundary_idx
+                push!(b2e, (fid,lid))
+                v2e[he.dest] = boundary_idx
+            end
+        end
+
+        new(n_vertices, n_faces, n_boundary, vertices, half_edges, ec, v2e, e2e, b2e)
+    end
+end
+
+# Uniform volume mesh structure
+# TODO: Support non-uniform mesh
+mutable struct VolumeMesh{T<:Real}
+    ### Attributes
+    # Number of vertices in the mesh
+    n_vertices::Int64
     # Number of cells in the mesh
     n_cells::Int64
     # Array of vertices in the mesh
     vertices::Array{Vertex{3,T}}
-    # Array of half-edges in the mesh
-    half_edges::Array{HalfEdge}
-    # Array of faces in the mesh
-    half_faces::Array{HalfFace}
-    # Array of cells in the mesh
-    cells::Array{Cell}
-    # Array of internal node indices
-    internal_nodes_topo::Array{Int64}
-    # Array of boundary node indices
-    boundary_nodes_topo::Array{Int64}
-    # Adjacency list for vertices
-    adjacency_list::Array{Int64,2}
+    # Array of anchor half-faces in the mesh
+    #   (indices are (cell ID, local ID, anchor ID)
+    half_faces::Array{Array{Array{HalfFace}}}
+    # Element connectivity array
+    ec::Array{Int64, 2}
+    # Map of each vertex to AHF anchored at the vertex
+    #   & border vertex to boundary AHF
+    v2f::Array{Tuple{Int64,Int64,Int64}}
+    # Map of each internal half-face with anchor ID 1 to its twin AHF
+    f2f::Array{Tuple{Int64,Int64,Int64},2}
+    # Map of each boundary half-face with anchor ID 1 to its twin AHF
+    b2f::Array{Tuple{Int64,Int64,Int64}}
 
-### Constructor & check mesh sanity
-    function Tetmesh(
+    ### Constructor & check mesh sanity
+    function VolumeMesh(
         vertices::Array{Vertex{3,T}},
-        half_edges::Array{HalfEdge},
-        half_faces::Array{HalfFace},
-        cells::Array{Cell} ) where {T<:Real}
+        ec::Array{Int64, 2} )
     	# populate number of elements
         n_vertices = size(vertices)
-        n_half_edges = size(half_edges)
-        n_half_faces = size(half_faces)
         n_cells = size(cells)
+        elem_dim = size(ec,2)
 
-        ### Check mesh sanity
-        # Check half_face.half_edge.face == half_face
-       	for hfid in 1:n_half_faces
-       		half_face = half_faces[hfid]
-       		he = half_edges[half_face.half_edge]
-       		@assert he.face == hfid ("face " * fid * ": face.half_edge.face != face")
-   		end
+        # Hardcode half-face topology per cell
+        cell_hf_topo = []
+        if elem_dim == 4 # tetrahedron
+            cell_hf_topo = [1 2 3; 1 4 2; 2 4 3; 1 3 4]
+        elseif elem_dim == 6 # hexahedron
+            cell_hf_topo = [1 2 3 4; 1 6 7 2; 2 7 8 3; 3 8 5 4; 1 4 5 6; 5 6 7 8]
+        end
+        face_size = size(cell_hf_topo,2)
+        
+        # Populate half-face array
+        vert_hf_map = Dict(Array{Int64},HalfFace())
+        half_faces = Vector{Vector{Vector{HalfFace}}}()
+        for cid in 1:n_cells
+            cell_half_faces = Vector{Vector{HalfFace}}()
+            for lid in 1:elem_dim
+                half_face_anchors = Array{HalfFace}(undef, face_size)
+                hf_ids = [ec[cid,i] for i in cell_hf_topo[lid,:]]
+                for aid in 1:face_size
+                    hf_ids_shift = circshift(hf_ids, aid)
+                    hf = HalfFace(hf_ids_shift, aid)
+                    half_face_anchors[aid] = hf
+                    vert_hf_map[hf_ids_shift] = hf
+                end
+                push!(cell_half_faces, half_face_anchors)
+            end
+            push!(half_faces, cell_half_faces)
+        end
 
-   		# Check if half-edges in a half-face construct a loop
-   		max_half_face_half_edges = 100
-   		for hfid in 1:n_half_faces
-   			num_half_face_half_edges = 0
-   			half_face = half_faces[hfid]
-   			he = half_face.half_edge
-   			he_end = half_face.half_edge
-   			while true
-   				num_half_face_half_edges += 1
-   				@assert num_half_face_half_edges < max_half_face_half_edges ("half_face " * hfid * " has too many half-edges")
-   				he = half_edges[he].next
-   				he == he_end && break
-   			end
-   		end
-
-   		# Check if half-faces in a cell construct a loop
-   		max_cell_half_faces = 100
-   		for cid in 1:n_cells
-   			num_cell_half_faces = 0
-   			cell = cells[cid]
-   			hf = cell.half_face
-   			hf_end = cell.half_face
-   			while true
-   				num_cell_half_faces += 1
-   				@assert num_cell_half_faces < max_cell_half_faces ("cell " * cid * " has too many half-faces")
-   				hf = half_faces[hf].next
-   				hf == hf_end && break
-   			end
-   		end
-
-   		# Check mutual relationship between half-edges
-   		for heid in 1:n_half_edges
-   			he = half_edges[heid]
-   			@assert half_edges[he.twin].twin == heid ("half-edge " * heid * " != he.twin.twin")
-   			@assert half_edges[he.next].prev == heid ("half-edge " * heid * " != he.next.prev")
-   			@assert half_edges[he.prev].next == heid ("half-edge " * heid * " != he.prev.next")
-   			@assert he.twin != heid ("half-edge " * heid * " == he.twin")
-   			@assert he.prev != heid ("half-edge " * heid * " == he.prev")
-   			@assert he.next != heid ("half-edge " * heid * " == he.next")
-   		end
-
-   		# Check mutual relationship between half-faces
-   		for hfid in 1:n_half_faces
-   			hf = half_faces[hfid]
-   			@assert half_faces[hf.twin].twin == hfid ("half-face " * hfid * " != hf.twin.twin")
-   			@assert half_faces[hf.next].prev == hfid ("half-face " * hfid * " != hf.next.prev")
-   			@assert half_faces[hf.prev].next == hfid ("half-face " * hfid * " != hf.prev.next")
-   			@assert hf.twin != heid ("half-face " * hfid * " == hf.twin")
-   			@assert hf.prev != heid ("half-face " * hfid * " == hf.prev")
-   			@assert hf.next != heid ("half-face " * hfid * " == hf.next")
-   		end
-
-   		# Vertices sanity check
-   		max_outgoing_half_edges = 100
-   		for vid in 1:n_vertices
-   			n_traversed_edges = 0
-   			vert = vertices[vid]
-   			is_vertex_visited = Zeros(Bool, n_vertices)
-   			boundary_flag = false
-
-   			# Vertex ring iteration
-   			ring_iter = half_edges[vert.half_edge].twin
-   			ri_0 = ring_iter
-   			while true
-   				other_vertex = half_edges[ring_iter].origin
-   				@assert half_edges[ring_iter].dest == vid ("ring_iter.dest != dest")
-   				@assert num_traversed_edges < max_outgoing_half_edges ("Too many half-edges in ring")
-   				@assert is_vertex_visited[other_vertex] == false ("More than one edge between two vertices")
-   				is_vertex_visited[other_vertex] = true
-   				num_traversed_edges += 1
-
-   				# Identify boundary nodes
-   				ring_iter_twin = half_edges[ring_iter].twin
-   				if half_edges[ring_iter].face == -1 || half_edges[ring_iter_twin].face == -1
-   					boundary_flag = true
-   				end
-
-   				# populate adjacency list
-   				adjacency_list[vid, other_vertex] = 1
-
-   				ring_iter = half_edges[half_edges[ring_iter].next].twin
-   				ring_iter == ri_0 && break
-   			end
-
-   			if boundary_flag
-   				push!(boundary_nodes_topo, vid)
-   			else
-   				push!(internal_nodes_topo, vid)
-   			end
-   		end
+        # Populate half-face - twin half-face map
+        f2f = Tuple{Int64,Int64,Int64}[(0,0,0) for i in 1:n_faces, j in 1:elem_dim]
+        v2f = Tuple{Int64,Int64,Int64}[(0,0,0) for i in 1:n_vertices]
+        b2e = Tuple{Int64,Int64,Int64}[]
+        n_boundary = 0 # Boundary half-face count
+        for cid in 1:n_cells, lid in 1:elem_dim
+            hf = half_faces[cid][lid]
+            twin_idx = circshift(get(vert_hf_map, reverse(hf.vertices), undef), 1)
+            if v2f
+            if twin_idx != undef
+            else
+            end
+        end
     end
     
 end
