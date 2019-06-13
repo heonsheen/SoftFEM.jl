@@ -200,7 +200,7 @@ mutable struct VolumeMesh{T<:Real}
         for cid in 1:n_cells, lid in 1:elem_dim
             hf = half_faces[cid][lid]
             twin_idx = circshift(get(vert_hf_map, reverse(hf.vertices), undef), 1)
-            if v2f
+            if v2f[
             if twin_idx != undef
             else
             end
