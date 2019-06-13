@@ -61,8 +61,6 @@ mutable struct Mesh
     n_vertices::Int64
     # Number of faces in the mesh
     n_faces::Int64
-    # Number of boundary half-edges
-    n_boundary::Int64
     # Array of vertices in the mesh
     vertices::Array{Vertex}
     # 2D Array of half-edges in the mesh indexed by [face id, local id])
@@ -128,20 +126,20 @@ mutable struct Mesh
             end
         end
 
-        new(n_vertices, n_faces, n_boundary, vertices, half_edges, ec, v2e, e2e, b2e)
+        new(n_vertices, n_faces, vertices, half_edges, ec, v2e, e2e, b2e)
     end
 end
 
 # Uniform volume mesh structure
 # TODO: Support non-uniform mesh
-mutable struct VolumeMesh{T<:Real}
+mutable struct VolumeMesh
     ### Attributes
     # Number of vertices in the mesh
     n_vertices::Int64
     # Number of cells in the mesh
     n_cells::Int64
     # Array of vertices in the mesh
-    vertices::Array{Vertex{3,T}}
+    vertices::Array{Vertex}
     # Array of anchor half-faces in the mesh
     #   (indices are (cell ID, local ID, anchor ID)
     half_faces::Array{Array{Array{HalfFace}}}
@@ -157,24 +155,24 @@ mutable struct VolumeMesh{T<:Real}
 
     ### Constructor & check mesh sanity
     function VolumeMesh(
-        vertices::Array{Vertex{3,T}},
+        vertices::Array{Vertex},
         ec::Array{Int64, 2} )
     	# populate number of elements
-        n_vertices = size(vertices)
-        n_cells = size(cells)
+        n_vertices = size(vertices,1)
+        n_cells = size(ec,1)
         elem_dim = size(ec,2)
 
         # Hardcode half-face topology per cell
         cell_hf_topo = []
         if elem_dim == 4 # tetrahedron
-            cell_hf_topo = [1 2 3; 1 4 2; 2 4 3; 1 3 4]
+            cell_hf_topo = [1 2 3; 1 4 2; 2 4 3; 3 4 1]
         elseif elem_dim == 6 # hexahedron
             cell_hf_topo = [1 2 3 4; 1 6 7 2; 2 7 8 3; 3 8 5 4; 1 4 5 6; 5 6 7 8]
         end
         face_size = size(cell_hf_topo,2)
         
         # Populate half-face array
-        vert_hf_map = Dict(Array{Int64},HalfFace())
+        vert_hf_map = Dict{Array{Int64},Tuple{Int64,Int64,Int64}}()
         half_faces = Vector{Vector{Vector{HalfFace}}}()
         for cid in 1:n_cells
             cell_half_faces = Vector{Vector{HalfFace}}()
@@ -182,10 +180,10 @@ mutable struct VolumeMesh{T<:Real}
                 half_face_anchors = Array{HalfFace}(undef, face_size)
                 hf_ids = [ec[cid,i] for i in cell_hf_topo[lid,:]]
                 for aid in 1:face_size
-                    hf_ids_shift = circshift(hf_ids, aid)
-                    hf = HalfFace(hf_ids_shift, aid)
+                    hf_ids_shift = circshift(hf_ids, aid-1)
+                    hf = HalfFace(hf_ids, aid)
                     half_face_anchors[aid] = hf
-                    vert_hf_map[hf_ids_shift] = hf
+                    vert_hf_map[hf_ids_shift] = (cid, lid, aid)
                 end
                 push!(cell_half_faces, half_face_anchors)
             end
@@ -193,20 +191,39 @@ mutable struct VolumeMesh{T<:Real}
         end
 
         # Populate half-face - twin half-face map
-        f2f = Tuple{Int64,Int64,Int64}[(0,0,0) for i in 1:n_faces, j in 1:elem_dim]
+        f2f = Tuple{Int64,Int64,Int64}[(0,0,0) for i in 1:n_cells, j in 1:elem_dim]
         v2f = Tuple{Int64,Int64,Int64}[(0,0,0) for i in 1:n_vertices]
-        b2e = Tuple{Int64,Int64,Int64}[]
+        b2f = Tuple{Int64,Int64,Int64}[]
         n_boundary = 0 # Boundary half-face count
         for cid in 1:n_cells, lid in 1:elem_dim
-            hf = half_faces[cid][lid]
-            twin_idx = circshift(get(vert_hf_map, reverse(hf.vertices), undef), 1)
-            if v2f[hf.vertex[hf.anchor]] == (0,0,0)
-            	v2f[hf.vertex[hf.anchor]] = (cid, lid, 1)
+            hf = half_faces[cid][lid][1]
+            twin_vts = circshift(reverse(hf.vertices), 1)
+            twin_idx = get(vert_hf_map, twin_vts, (0,0,0))
+            if v2f[hf.vertices[hf.anchor]] == (0,0,0)
+            	v2f[hf.vertices[hf.anchor]] = (cid, lid, 1)
             end 
-            if twin_idx != undef
+            if twin_idx != (0,0,0)
+                f2f[cid, lid] = twin_idx
             else
+                n_boundary += 1
+                f2f[cid, lid] = (n_boundary, 0, 1)
+                push!(b2f, (cid, lid, 1))
+                half_face_anchors = Array{HalfFace}(undef, face_size)
+                for aid in 1:face_size
+                    twin_vts_shift = circshift(twin_vts, aid-1)
+                    bhf = HalfFace(twin_vts, aid)
+                    v2f[bhf.vertices[bhf.anchor]] = (n_boundary, 0, aid)
+                    half_face_anchors[aid] = bhf
+                end
+                if n_boundary <= size(half_faces, 1)
+                    push!(half_faces[n_boundary], half_face_anchors)
+                else
+                    push!(half_faces, [half_face_anchors])
+                end 
             end
         end
+
+        new(n_vertices, n_cells, vertices, half_faces, ec, v2f, f2f, b2f)
     end
     
 end

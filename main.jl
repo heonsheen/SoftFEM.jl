@@ -1,5 +1,5 @@
 include("Geometry.jl")
-
+#=
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
@@ -17,3 +17,29 @@ ec = [1 4 5;
       5 4 7]
 
 mesh = Mesh(vertices, ec)
+=#
+
+points = [0 0 -1;
+		  sqrt(2) -sqrt(2) 0;
+		  sqrt(2) sqrt(2) 0;
+		  -sqrt(2) sqrt(2) 0;
+		  -sqrt(2) -sqrt(2) 0;
+		  0 0 0;
+		  0 0 1]
+
+n_points = size(points, 1)
+vertices = Array{Vertex}(undef, n_points)
+for i in 1:n_points
+	vertices[i] = Vertex(Array{Float64}(points[i,:]))
+end
+
+ec = [2 3 6 7;
+      2 6 5 7;
+      3 4 6 7;
+      4 5 6 7;
+      2 6 3 1;
+      5 6 2 1;
+      6 4 3 1;
+      6 5 4 1]
+
+ volume_mesh = VolumeMesh(vertices, ec)
