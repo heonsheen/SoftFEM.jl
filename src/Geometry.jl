@@ -5,11 +5,11 @@ using LinearAlgebra
 
 # N-dimensional Vertex data
 mutable struct Vertex
-    ### Attributes
-    x::Array{Float64} # Positions of the vertex
+### Attributes
+    x::Vector{Float64} # Positions of the vertex
 
-    ### Constructors
-    function Vertex(x::Array{Float64})
+### Constructors
+    function Vertex(x::Vector{Float64})
         N = size(x,1)
         @assert N >= 2 "Dimension cannot be less than 2"
     	@assert N <= 3 "Dimension cannot be larger than 3"
@@ -20,11 +20,11 @@ end
 
 # Half-edge connectivity data
 mutable struct HalfEdge
-    ### Attributes
+### Attributes
     origin::Int64 # Index of the vertex the half-edge originates from
     dest::Int64 # Index of the vertex the half-edge points to
 
-    ### Constructors
+### Constructors
     function HalfEdge(
 	origin::Int64,
         dest::Int64)
@@ -37,11 +37,11 @@ end
 
 # Half-Face connectivity data for volumetric mesh topology
 mutable struct HalfFace
-    ### Attributes
+### Attributes
     vertices::Array{Int64} # Indices of the vertices belonging to the half-face
     anchor::Int64 # Local index of the anchor vertex
 
-    ### Constructor
+### Constructor
     function HalfFace(vertices::Array{Int64}, anchor::Int64)
 	new(vertices, anchor)
     end
@@ -50,7 +50,7 @@ end
 # Uniform surface mesh structure with dimensionality N
 # TODO: Support non-uniform mesh
 mutable struct Mesh
-    ### Attributes
+### Attributes
     n_vertices::Int64 # Number of vertices in the mesh
     n_faces::Int64 # Number of faces in the mesh
     vertices::Array{Vertex} # Array of vertices in the mesh
@@ -61,7 +61,7 @@ mutable struct Mesh
     e2e::Array{Tuple{Int64,Int64},2} # Map of internal half-edge to its twin half-edge
     b2e::Array{Tuple{Int64,Int64}} # Map of boundary half-edge to its twin internal half-edge
     
-    ### Constructor & check mesh sanity
+### Constructor & check mesh sanity
     function Mesh(
         vertices::Array{Vertex},
         ec::Array{Int64,2} )
@@ -118,7 +118,7 @@ end
 # Uniform volume mesh structure
 # TODO: Support non-uniform mesh
 mutable struct VolumeMesh
-    ### Attributes
+### Attributes
     n_vertices::Int64 # Number of vertices in the mesh
     n_cells::Int64 # Number of cells in the mesh
     vertices::Array{Vertex} # Array of vertices in the mesh    
@@ -130,7 +130,7 @@ mutable struct VolumeMesh
     f2f::Array{Tuple{Int64,Int64,Int64},2} # Map of each internal half-face with anchor ID 1 to its twin AHF
     b2f::Array{Tuple{Int64,Int64,Int64}} # Map of each boundary half-face with anchor ID 1 to its twin AHF
 
-    ### Constructor & check mesh sanity
+### Constructor & check mesh sanity
     function VolumeMesh(
         vertices::Array{Vertex},
         ec::Array{Int64, 2} )

@@ -64,7 +64,7 @@ FT = facetype(GT.GLNormalMesh)
 =#
 
 N = 50
-#Makie.record(scene, "\\output\\test.mp4", 1:N) do i
+#Makie.record(scene, "output/test.mp4", 1:N) do i
 for i = 1:N
     volume_mesh.vertices[1].x[3] += 0.01
     volume_mesh.vertices[7].x[3] -= 0.01
