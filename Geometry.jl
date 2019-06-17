@@ -1,7 +1,6 @@
 # Simple definitions for basic geometry structure
 # Following Alumbaugh et al. 2005 (Compact Array-Based Mesh Data Structures)
 
-using StaticArrays
 using LinearAlgebra
 
 # N-dimensional Vertex data
@@ -225,5 +224,35 @@ mutable struct VolumeMesh
 
         new(n_vertices, n_cells, vertices, half_faces, ec, v2f, f2f, b2f)
     end
-    
+end
+
+# getter function for Mesh half_edge
+function get_half_edge(mesh::Mesh, index::Tuple{Int64,Int64})
+    mesh.half_edges[index[1]][index[2]]
+end
+
+# getter function for VolumeMesh half_face
+function get_half_face(volume_mesh::VolumeMesh, index::Tuple{Int64,Int64,Int64})
+    volume_mesh.half_faces[index[1]][index[2]][index[3]]
+end
+
+# extract surface mesh from volumetric volume_mesh
+function extract_surface(volume_mesh::VolumeMesh)
+    surface_map = Dict{Int64,Int64}()
+    surface_vts = Vector{Vertex}()
+    surface_ec = zeros(Int64, size(volume_mesh.b2f,1), 3)
+    for bi in 1:size(volume_mesh.b2f,1)
+        b = volume_mesh.b2f[bi]
+        bhf = get_half_face(volume_mesh, b)
+        for vi in 1:size(bhf.vertices,1)
+            v = bhf.vertices[vi]
+            if get(surface_map, v, 0) == 0
+                push!(surface_vts, volume_mesh.vertices[v])
+                surface_map[v] = size(surface_vts, 1)
+            end
+            surface_ec[bi,vi] = surface_map[v]
+        end
+    end
+
+    Mesh(surface_vts, surface_ec)
 end
