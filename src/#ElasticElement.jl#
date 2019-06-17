@@ -1,3 +1,0 @@
-mutable struct ElasticElement
-    N::Int64
-end
