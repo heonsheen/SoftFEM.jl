@@ -53,6 +53,7 @@ mutable struct Mesh
 ### Attributes
     n_vertices::Int64 # Number of vertices in the mesh
     n_faces::Int64 # Number of faces in the mesh
+    dim::Int64 # dimension of the mesh
     vertices::Array{Vertex} # Array of vertices in the mesh
     half_edges::Array{Array{HalfEdge}} # 2D Array of half-edges indexed by [face id, local id])
     ec::Matrix{Int64} # Element Connectivity Array
@@ -111,7 +112,7 @@ mutable struct Mesh
             end
         end
 
-        new(n_vertices, n_faces, vertices, half_edges, ec, v2e, e2e, b2e)
+        new(n_vertices, n_faces, elem_dim, vertices, half_edges, ec, v2e, e2e, b2e)
     end
 end
 

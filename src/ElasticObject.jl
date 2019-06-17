@@ -1,5 +1,5 @@
 # abstract description of an elastic object represented by a mesh
-mutable struct ElasticObject
+abstract type ElasticObject
 ### Attributes    
     N::Int64 # number of nodes
     NT::Int64 # number of elements
