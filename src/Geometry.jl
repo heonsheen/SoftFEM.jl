@@ -55,7 +55,7 @@ mutable struct Mesh
     n_faces::Int64 # Number of faces in the mesh
     vertices::Array{Vertex} # Array of vertices in the mesh
     half_edges::Array{Array{HalfEdge}} # 2D Array of half-edges indexed by [face id, local id])
-    ec::Array{Int64,2} # Element Connectivity Array
+    ec::Matrix{Int64} # Element Connectivity Array
     v2e::Array{Tuple{Int64,Int64}} # Map of vertex to half-edge originating from it,
                                    #   and Map of boundary vertex to boundary half-edge
     e2e::Array{Tuple{Int64,Int64},2} # Map of internal half-edge to its twin half-edge
@@ -124,7 +124,7 @@ mutable struct VolumeMesh
     vertices::Array{Vertex} # Array of vertices in the mesh    
     half_faces::Array{Array{Array{HalfFace}}} # Array of anchor half-faces in the mesh
                                               #   (indices are (cell ID, local ID, anchor ID)
-    ec::Array{Int64, 2} # Element connectivity array
+    ec::Matrix{Int64} # Element connectivity array
     v2f::Array{Tuple{Int64,Int64,Int64}} # Map of each vertex to AHF anchored at the vertex
                                          #   & border vertex to boundary AHF
     f2f::Array{Tuple{Int64,Int64,Int64},2} # Map of each internal half-face with anchor ID 1 to its twin AHF
