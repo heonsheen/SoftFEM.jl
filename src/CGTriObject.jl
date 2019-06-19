@@ -98,10 +98,6 @@ function compute_stiffness_matrix(obj::CGTriObject)
     # TODO
 end 
 
-function compute_force_differentials(obj::CGTriObject)
-    # TODO
-end
-
 function compute_elastic_force(obj::CGTriObject)
     f = zeros(2*obj.N,1)
     for t in 1:obj.NT
@@ -116,6 +112,20 @@ function compute_elastic_force(obj::CGTriObject)
         f[2*T[2]-1:2*T[2]] += f2
         f[2*T[3]-1:2*T[3]] += f3
     end
-
-    f
 end
+
+function compute_force_differential(obj::CGTriObject)
+    df = zeros(2*obj.N,1)
+    for t in 1:obj.NT
+        dF_t = obj.dF[2*t-1:2*t,:]
+        Dm_inv_t = obj.Dm_inv[2*t-1:2*t,:]
+        H = -obj.W[t] * compute_dP(dF_t, obj.mat) * Dm_inv_t'
+        df1 = H[:,1]
+        df2 = H[:,2]
+        df3 = -(df1 + df2)
+        T = obj.ec[t,:]
+        df[2*T[1]-1:2*T[1]] += df1
+        df[2*T[2]-1:2*T[2]] += df2
+        df[2*T[3]-1:2*T[3]] += df3
+    end
+end    

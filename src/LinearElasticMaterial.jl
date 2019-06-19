@@ -24,11 +24,15 @@ mutable struct LinearElasticMaterial <: Material
 end
 
 function compute_energy(F::Matrix{Float64}, mat::LinearElasticMaterial)
-    strain = 1/2 * (F + F') - Array{Float64}(I,2,2)
+    strain = 1/2 * (F + F') - Array{Float64}(I,2,2) # infinitesimal strain tensor
     mat.mu * tr(strain'*strain) + mat.lambda/2 * tr(strain)^2
 end
 
 function compute_PK1(F::Matrix{Float64}, mat::LinearElasticMaterial)
-    strain = 1/2 * (F + F') - Array{Float64}(I,2,2)
+    strain = 1/2 * (F + F') - Array{Float64}(I,2,2) #infinitesimal strain tensor
     2 * mat.mu * strain + mat.lambda * tr(strain) * I
+end
+
+function compute_dP(dF::Matrix{Float64}, mat::LinearElasticMaterial)
+    mat.mu * (dF + dF') + mat.lambda * tr(dF) * I
 end
