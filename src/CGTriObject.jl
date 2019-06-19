@@ -1,5 +1,7 @@
 include("ElasticObject.jl")
 include("Geometry.jl")
+include("Material.jl")
+include("LinearElasticMaterial.jl")
 
 mutable struct CGTriObject <: ElasticObject
 ### Attributes 
@@ -28,6 +30,8 @@ mutable struct CGTriObject <: ElasticObject
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::SparseMatrixCSC{Float64,Int64} # force vector of previous timestep
     K0::SparseMatrixCSC{Float64,Int64} # 
+
+    mat::Material # elastic material description
     
 ### Constructor
     function CGTriObject(
@@ -87,5 +91,25 @@ mutable struct CGTriObject <: ElasticObject
 
 
         end
+    end
+end
+
+function compute_stiffness_matrix(obj::CGTriObject)
+
+end 
+
+function compute_elastic_force(obj::CGTriObject)
+    f = zeros(2*obj.N,1)
+    for t in 1:obj.NT
+        F_t = obj.F[2*t-1:2*t,:]
+        Dm_inv_t = obj.Dm_inv[2*t-1:2*t,:]
+        H = -obj.W[t] * compute_PK1(F_t, obj.mat) * Dm_inv_t'
+        f1 = H[:,1]
+        f2 = H[:,2]
+        f3 = -(f1 + f2)
+        T = obj.ec[t,:]
+        f[2*T[1]-1:2*T[1]] += f1
+        f[2*T[2]-1:2*T[2]] += f2
+        f[2*T[3]-1:2*T[3]] += f3
     end
 end

@@ -28,7 +28,16 @@ abstract type ElasticObject
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::SparseVector{Float64,Int64} # force vector of previous timestep
     K0::SparseMatrixCSC{Float64,Int64} # 
+
+    mat::Material # elastic material description
 =#       
 end
 
 ### methods
+function compute_stiffness_matrix(obj::ElasticObject)
+    # abstract definition
+end 
+
+function compute_elastic_force(obj::ElasticObject)
+    # abstract definition
+end
