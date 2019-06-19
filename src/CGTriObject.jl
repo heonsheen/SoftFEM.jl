@@ -95,8 +95,12 @@ mutable struct CGTriObject <: ElasticObject
 end
 
 function compute_stiffness_matrix(obj::CGTriObject)
-
+    # TODO
 end 
+
+function compute_force_differentials(obj::CGTriObject)
+    # TODO
+end
 
 function compute_elastic_force(obj::CGTriObject)
     f = zeros(2*obj.N,1)
@@ -112,4 +116,6 @@ function compute_elastic_force(obj::CGTriObject)
         f[2*T[2]-1:2*T[2]] += f2
         f[2*T[3]-1:2*T[3]] += f3
     end
+
+    f
 end
