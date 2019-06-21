@@ -36,3 +36,8 @@ end
 function compute_dP(dF::Matrix{Float64}, mat::LinearElasticMaterial)
     mat.mu * (dF + dF') + mat.lambda * tr(dF) * I
 end
+
+function compute_C(F::Matrix{Float64}, mat::LinearElasticMaterial)
+    mat.mu * [2 0 0 0; 0 1 1 0; 0 1 1 0; 0 0 0 2] +
+        mat.lambda * [1 0 0 1; 0 0 0 0; 0 0 0 0; 1 0 0 1]
+end

@@ -24,6 +24,10 @@ abstract type ElasticObject
     F_inv::Matrix{Float64} # array of inverse deformation gradient ((dim * NT) x dim)
     W::Vector{Float64} # reference volume of each element (NT x 1)
 
+    T::Matrix{Float64} # mapping vectorized nodal position in a tri to 
+                       #   its vectorized deformation gradient (4NT by 6)
+                       #   definition: vec(F) = T * vec(x), or vec(dF) = T * vec(dx)
+
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::SparseVector{Float64,Int64} # force vector of previous timestep

@@ -26,6 +26,10 @@ mutable struct CGTriObject <: ElasticObject
     F_inv::Matrix{Float64} # array of inverse deformation gradient ((dim * NT) x dim)
     W::Vector{Float64} # reference volume of each element (NT x 1)
 
+    T::Matrix{Float64} # mapping vectorized nodal position in a tri to 
+                       #   its vectorized deformation gradient (4NT by 6)
+                       #   definition: vec(F) = T * vec(x), or vec(dF) = T * vec(dx)
+
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::SparseMatrixCSC{Float64,Int64} # force vector of previous timestep
@@ -36,7 +40,7 @@ mutable struct CGTriObject <: ElasticObject
 ### Constructor
     function CGTriObject(
         mesh::Mesh,
-        material::Material)
+        mat::Material)
         N = mesh.n_vertices
         NT = mesh.n_faces
         dim = mesh.dim
@@ -50,13 +54,10 @@ mutable struct CGTriObject <: ElasticObject
         v = zeros((dim*N, 1))
 
         G = [1 0; 0 1; -1 -1]
+        I2 = Matrix{Float64}(I,2,2)
 
         M_I = M_J = Vector{Int64}()
         M_V = Vector{Float64}()
-        Kp_I = Kp_J = Vector{Int64}()
-        Kp_V = Vector{Float64}()
-        fp_I = Vector{Int64}()
-        fp_V = Vector{Float64}()
         K0_I = K0_J = Vector{Int64}()
         K0_V = Vector{Float64}()
 
@@ -65,8 +66,8 @@ mutable struct CGTriObject <: ElasticObject
             Dm[2*t-1:2*t,:] = X_t' * G
             Ds[2*t-1:2*t,:] = X_t' * G
             Dm_inv[2*t-1:2*t,:] = inv(X_t' * G)
-            F[2*t-1:2*t,:] = Matrix{Float64}(I,2,2)
-            F_inv[2*t-1:2*t,:] = Matrix{Float64}(I,2,2)
+            F[2*t-1:2*t,:] = I2
+            F_inv[2*t-1:2*t,:] = I2
             vol = det(X_t' * G)/2; # undeformed volume from matrix determinant
             @assert vol > 0 "Wrong orientation in mesh"
             W[t] = vol;
@@ -89,13 +90,53 @@ mutable struct CGTriObject <: ElasticObject
                 M_V.push(Mh_T[i,j])
             end
 
+            # Stiffness Matrix
+            T[4*(t-1)+1:4*t,:] = kron((G * inv(X_t' * G))', Matrix{Float64}(I,2,2))
 
+            T_t = T[4*(t-1)+1:4*t,:]
+            C = compute_C(I2, mat)
+
+            K_t = W[t] * T_t' * C * T_t
+            K_t = 1/2 * (K_t + K_t')
+
+            for i in 1:3, j in 1:3
+                K0_I[nnz+1:nnz+4] = repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
+                K0_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,i]-1)+1:2*ec[t,i])', 2, 1), 4, 1)
+                K0_V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
+                nnz += 4
+            end
         end
+
+        M = sparse(M_I, M_J, M_V, [2*N, 2*N])
+        K0 = sparse(K0_I, K0_J, K0_V, [2*N, 2*N])
+        K_prev = spzeros(2*N, 2*N)
+        f_prev = spzeros(2*N, 1)
+
+        new(N, NT, dim, x_node, X_node, ec, x, X, v, 
+            Ds, Dm, Dm_inv, F, F_inv, W, T, M, K_prev, f_prev, K0, mat)
     end
 end
 
 function compute_stiffness_matrix(obj::CGTriObject)
-    # TODO
+    I = J = V = zeros(9*4*obj.NT,1)
+    nnz = 0
+    for t in 1:obj.NT
+        F_t = obj.F[2*t-1:2*t,:]
+        T_t = obj.T[4*(t-1)+1:4*t,:]
+        C = compute_C(F_t, obj.mat)
+
+        K_t = obj.W[t] * T_t' * C * T_t
+        K_t = 1/2 * (K_t + K_t')
+
+        for i in 1:3, j in 1:3
+            I[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
+            J[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i])', 2, 1), 4, 1)
+            V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
+            nnz += 4
+        end
+    end
+
+    sparse(I, J, V, [2*obj.N, 2*obj.N])
 end 
 
 function compute_elastic_force(obj::CGTriObject)
@@ -112,6 +153,8 @@ function compute_elastic_force(obj::CGTriObject)
         f[2*T[2]-1:2*T[2]] += f2
         f[2*T[3]-1:2*T[3]] += f3
     end
+
+    f
 end
 
 function compute_force_differential(obj::CGTriObject)
@@ -128,4 +171,6 @@ function compute_force_differential(obj::CGTriObject)
         df[2*T[2]-1:2*T[2]] += df2
         df[2*T[3]-1:2*T[3]] += df3
     end
+
+    df
 end    
