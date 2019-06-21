@@ -49,17 +49,30 @@ mutable struct CGTriObject <: ElasticObject
         X_node = x_node
         ec = mesh.ec
 
-        x = reshape(x_node, (dim*N, 1))
-        X = x_node
-        v = zeros((dim*N, 1))
+        x = vec(reshape(x_node, (dim*N, 1)))
+        X = vec(reshape(x_node, (dim*N, 1)))
+        v = zeros(dim*N)
 
         G = [1 0; 0 1; -1 -1]
         I2 = Matrix{Float64}(I,2,2)
 
-        M_I = M_J = Vector{Int64}()
+        M_I = Vector{Int64}()
+        M_J = Vector{Int64}()
         M_V = Vector{Float64}()
-        K0_I = K0_J = Vector{Int64}()
-        K0_V = Vector{Float64}()
+        K0_I = zeros(Int64, 9*4*NT)
+        K0_J = zeros(Int64, 9*4*NT)
+        K0_V = zeros(Float64, 9*4*NT)
+
+        Ds = zeros(dim*NT, dim)
+        Dm = zeros(dim*NT, dim)
+        Dm_inv = zeros(dim*NT, dim)
+        F = zeros(dim*NT, dim)
+        F_inv = zeros(dim*NT, dim)
+        W = zeros(NT)
+        
+        T = zeros(4 * NT, 6)
+
+        nnz = 0
 
         for t in 1:NT
             X_t = X_node[[ec[t,i] for i in 1:3],:]
@@ -83,11 +96,11 @@ mutable struct CGTriObject <: ElasticObject
             end
             =# 
             # 2. Lumped mass matrix
-            Mh_T = abs(vol) / 12 * [4 0 0; 0 4 0; 0 0 4] * material.rho
+            Mh_T = abs(vol) / 12 * [4 0 0; 0 4 0; 0 0 4] * mat.rho
             for i = 1:3, j = 1:3
-                M_I.push(ec[t,i])
-                M_J.push(ec[t,j])
-                M_V.push(Mh_T[i,j])
+                push!(M_I, ec[t,i])
+                push!(M_J, ec[t,j])
+                push!(M_V, Mh_T[i,j])
             end
 
             # Stiffness Matrix
@@ -101,24 +114,26 @@ mutable struct CGTriObject <: ElasticObject
 
             for i in 1:3, j in 1:3
                 K0_I[nnz+1:nnz+4] = repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
-                K0_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,i]-1)+1:2*ec[t,i])', 2, 1), 4, 1)
+                K0_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,j]-1)+1:2*ec[t,j])', 2, 1), 4, 1)
                 K0_V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
                 nnz += 4
             end
         end
 
-        M = sparse(M_I, M_J, M_V, [2*N, 2*N])
-        K0 = sparse(K0_I, K0_J, K0_V, [2*N, 2*N])
+        M = sparse(M_I, M_J, M_V, 2*N, 2*N)
+        K0 = sparse(K0_I, K0_J, K0_V, 2*N, 2*N)
         K_prev = spzeros(2*N, 2*N)
         f_prev = spzeros(2*N, 1)
-
+        
         new(N, NT, dim, x_node, X_node, ec, x, X, v, 
             Ds, Dm, Dm_inv, F, F_inv, W, T, M, K_prev, f_prev, K0, mat)
     end
 end
 
 function compute_stiffness_matrix(obj::CGTriObject)
-    I = J = V = zeros(9*4*obj.NT,1)
+    I = zeros(Int64,9*4*obj.NT)
+    J = zeros(Float64,9*4*obj.NT)
+    V = zeros(Float64,9*4*obj.NT)
     nnz = 0
     for t in 1:obj.NT
         F_t = obj.F[2*t-1:2*t,:]

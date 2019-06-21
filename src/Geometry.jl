@@ -112,7 +112,8 @@ mutable struct Mesh
             end
         end
 
-        new(n_vertices, n_faces, elem_dim, vertices, half_edges, ec, v2e, e2e, b2e)
+        new(n_vertices, n_faces, size(vertices[1].x, 1), 
+            vertices, half_edges, ec, v2e, e2e, b2e)
     end
 end
 

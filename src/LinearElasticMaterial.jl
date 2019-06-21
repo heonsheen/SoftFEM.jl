@@ -16,7 +16,7 @@ mutable struct LinearElasticMaterial <: Material
 
 ### Constructor
     # mp is a Dict containing either YM and PR or Lamer parameters
-    function LinearMaterialModel(mp::Dict{String,Float64}, rho::Float64)
+    function LinearElasticMaterial(mp::Dict{String,Float64}, rho::Float64)
         mp = compute_parameters(mp)
 
         new(mp["mu"], mp["lambda"], mp["nu"], mp["E"], mp["kappa"], rho)
