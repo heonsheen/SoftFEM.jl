@@ -49,8 +49,8 @@ mutable struct CGTriObject <: ElasticObject
         X_node = x_node
         ec = mesh.ec
 
-        x = vec(reshape(x_node, (dim*N, 1)))
-        X = vec(reshape(x_node, (dim*N, 1)))
+        x = vec(reshape(x_node', (dim*N, 1)))
+        X = vec(reshape(x_node', (dim*N, 1)))
         v = zeros(dim*N)
 
         G = [1 0; 0 1; -1 -1]
@@ -97,10 +97,10 @@ mutable struct CGTriObject <: ElasticObject
             =# 
             # 2. Lumped mass matrix
             Mh_T = abs(vol) / 12 * [4 0 0; 0 4 0; 0 0 4] * mat.rho
-            for i = 1:3, j = 1:3
-                push!(M_I, ec[t,i])
-                push!(M_J, ec[t,j])
-                push!(M_V, Mh_T[i,j])
+            for i = 1:3, k = 1:2
+                push!(M_I, 2*(ec[t,i]-1) + k)
+                push!(M_J, 2*(ec[t,i]-1) + k)
+                push!(M_V, Mh_T[i,i])
             end
 
             # Stiffness Matrix
@@ -132,7 +132,7 @@ end
 
 function compute_stiffness_matrix(obj::CGTriObject)
     I = zeros(Int64,9*4*obj.NT)
-    J = zeros(Float64,9*4*obj.NT)
+    J = zeros(Int64,9*4*obj.NT)
     V = zeros(Float64,9*4*obj.NT)
     nnz = 0
     for t in 1:obj.NT
@@ -145,13 +145,13 @@ function compute_stiffness_matrix(obj::CGTriObject)
 
         for i in 1:3, j in 1:3
             I[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
-            J[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i])', 2, 1), 4, 1)
+            J[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,j]-1)+1:2*obj.ec[t,j])', 2, 1), 4, 1)
             V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
             nnz += 4
         end
     end
 
-    sparse(I, J, V, [2*obj.N, 2*obj.N])
+    sparse(I, J, V, 2*obj.N, 2*obj.N)
 end 
 
 function compute_elastic_force(obj::CGTriObject)

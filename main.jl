@@ -5,6 +5,9 @@ include("src/LinearElasticMaterial.jl")
 import Makie
 #import AbstractPlotting
 import GeometryTypes
+using UnicodePlots
+#using IterativeSolvers
+
 GT = GeometryTypes
 
 
@@ -60,4 +63,4 @@ mp = Dict{String,Float64}(
 mat = LinearElasticMaterial(mp, 0.01)
 
 fem_obj = CGTriObject(mesh, mat)
-
+#spy(fem_obj.M)
