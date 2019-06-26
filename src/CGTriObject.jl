@@ -5,7 +5,7 @@ include("LinearElasticMaterial.jl")
 
 mutable struct CGTriObject <: ElasticObject
 ### Attributes 
-# TODO: How do I make this inherit all attributes from ElasticObject?
+# TODO: How do I make this automatically inherit all attributes from ElasticObject?
 # (maybe Lazy::@forward?)
     N::Int64 # number of nodes
     NT::Int64 # number of elements
@@ -189,3 +189,17 @@ function compute_force_differential(obj::CGTriObject)
 
     df
 end    
+
+function update_pos(obj::CGTriObject, dx_node::Matrix{Float64})
+    obj.x_node = obj.X_node + dx_node
+    obj.x = vec(reshape(obj.x_node', (obj.dim*obj.N, 1)))
+
+    G = [1 0; 0 1; -1 -1]
+
+    for t in 1:obj.NT
+        x_t = obj.x_node[[obj.ec[t,i] for i in 1:3],:]
+        obj.Ds[2*t-1:2*t,:] = x_t' * G
+        obj.F[2*t-1:2*t,:] = obj.Ds[2*t-1:2*t,:] * obj.Dm_inv[2*t-1:2*t,:]
+        obj.F_inv[2*t-1:2*t,:] = obj.Dm[2*t-1:2*t,:] * inv(obj.Ds[2*t-1:2*t,:])
+    end
+end

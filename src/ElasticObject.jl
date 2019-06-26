@@ -45,5 +45,3 @@ end
 function compute_elastic_force(obj::ElasticObject)
     # abstract definition
 end
-
-function update_pos(obj::ElasticObject, mesh::Mesh)
