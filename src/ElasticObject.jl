@@ -45,3 +45,9 @@ end
 function compute_elastic_force(obj::ElasticObject)
     # abstract definition
 end
+
+function compute_force_differential(obj::ElasticObject)
+end
+
+function update_pos(obj::ElasticObject, dx::Vector{Float64})
+end

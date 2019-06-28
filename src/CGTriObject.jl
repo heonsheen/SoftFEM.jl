@@ -190,9 +190,9 @@ function compute_force_differential(obj::CGTriObject)
     df
 end    
 
-function update_pos(obj::CGTriObject, dx_node::Matrix{Float64})
-    obj.x_node = obj.X_node + dx_node
-    obj.x = vec(reshape(obj.x_node', (obj.dim*obj.N, 1)))
+function update_pos(obj::CGTriObject, dx::Vector{Float64})
+    obj.x = obj.X + dx
+    obj.x_node = reshape(obj.x, (obj.dim, obj.N))'
 
     G = [1 0; 0 1; -1 -1]
 
