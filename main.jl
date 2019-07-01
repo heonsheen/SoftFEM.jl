@@ -1,6 +1,7 @@
 include("src/Geometry.jl")
 include("src/CGTriObject.jl")
 include("src/LinearElasticMaterial.jl")
+include("src/BackwardEuler.jl")
 
 import Makie
 #import AbstractPlotting
@@ -57,10 +58,45 @@ surf_mesh = extract_surface(volume_mesh)
 =#
 
 mp = Dict{String,Float64}(
-    "E" => 10.0,
-    "nu" => 0.35
+    "E" => 1.0,
+    "nu" => 0.25
 )
 mat = LinearElasticMaterial(mp, 0.01)
 
-fem_obj = CGTriObject(mesh, mat)
-#spy(fem_obj.M)
+obj = CGTriObject(mesh, mat)
+
+n_steps = 100
+N = obj.N
+dim = obj.dim
+
+fixed = zeros(Bool, N*dim)
+for i in [5,6,11,12,17,18]
+      fixed[i] = true
+end
+
+dt = 0.01
+g = repeat([0.0; -9.81], N)
+#u = zeros(N*dim*2)
+
+limits = Makie.IRect(-5, -5, 10, 10)
+scene = Makie.Scene(limits = limits)
+node = Makie.Node(0.0)
+
+vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+s1 = Makie.mesh!(scene, vts, mesh.ec, color = :blue, shading = false, show_axis = false)[end]
+s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
+Makie.display(scene)
+
+for timestep = 1:n_steps
+      u = [obj.x - obj.X; obj.v]
+      u_new = backward_euler(u, obj, dt, fixed, g)
+      dx = u_new[1:N*dim]
+      v = u_new[N*dim+1:end]
+
+      update_mesh(mesh, obj)
+      vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+      s1[1] = vts
+
+      #u = u_new
+      sleep(1/24)
+end

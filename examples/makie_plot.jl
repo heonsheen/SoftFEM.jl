@@ -1,4 +1,4 @@
-include("src/Geometry.jl")
+include("../src/Geometry.jl")
 
 import Makie
 import AbstractPlotting

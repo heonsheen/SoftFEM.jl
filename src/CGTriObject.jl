@@ -203,3 +203,9 @@ function update_pos(obj::CGTriObject, dx::Vector{Float64})
         obj.F_inv[2*t-1:2*t,:] = obj.Dm[2*t-1:2*t,:] * inv(obj.Ds[2*t-1:2*t,:])
     end
 end
+
+function update_mesh(mesh::Mesh, obj::CGTriObject)
+    for i in 1:obj.N
+        mesh.vertices[i].x = obj.x_node[i,:]
+    end
+end
