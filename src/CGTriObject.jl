@@ -200,9 +200,11 @@ function update_pos(obj::CGTriObject, dx::Vector{Float64})
 
     for t in 1:obj.NT
         x_t = obj.x_node[[obj.ec[t,i] for i in 1:3],:]
+        dx_t = dx_node[[obj.ec[t,i] for i in 1:3],:]
         obj.Ds[2*t-1:2*t,:] = x_t' * G
         obj.F[2*t-1:2*t,:] = obj.Ds[2*t-1:2*t,:] * obj.Dm_inv[2*t-1:2*t,:]
         obj.F_inv[2*t-1:2*t,:] = obj.Dm[2*t-1:2*t,:] * inv(obj.Ds[2*t-1:2*t,:])
+        obj.dF[2*t-1:2*t,:] = dx_t' * G * obj.Dm_inv[2*t-1:2*t,:]
     end
 end
 
