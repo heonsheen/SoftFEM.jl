@@ -33,7 +33,7 @@ function compute_PK1(F::Matrix{Float64}, mat::LinearElasticMaterial)
     2 * mat.mu * strain + mat.lambda * tr(strain) * I
 end
 
-function compute_dP(dF::Matrix{Float64}, mat::LinearElasticMaterial)
+function compute_dP(F::Matrix{Float64}, dF::Matrix{Float64}, mat::LinearElasticMaterial)
     mat.mu * (dF + dF') + mat.lambda * tr(dF) * I
 end
 

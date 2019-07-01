@@ -16,6 +16,17 @@ abstract type Material
 end
 
 ### methods
+function compute_energy(F::Matrix{Float64}, mat::Material)
+end
+
+function compute_PK1(F::Matrix{Float64}, mat::Material)
+end
+
+function compute_dP(F::Matrix{Float64}, dF::Matrix{Float64}, mat::Material)
+end
+
+function compute_C(F::Matrix{Float64}, mat::Material)
+end
 
 # Compute all material parameters from 
 #   1. Young's Modulus and Poisson's Ratio

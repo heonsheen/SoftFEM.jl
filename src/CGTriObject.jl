@@ -175,9 +175,10 @@ end
 function compute_force_differential(obj::CGTriObject)
     df = zeros(2*obj.N,1)
     for t in 1:obj.NT
+        F_t = obj.F[2*t-1:2*t,:]
         dF_t = obj.dF[2*t-1:2*t,:]
         Dm_inv_t = obj.Dm_inv[2*t-1:2*t,:]
-        H = -obj.W[t] * compute_dP(dF_t, obj.mat) * Dm_inv_t'
+        H = -obj.W[t] * compute_dP(F_t, dF_t, obj.mat) * Dm_inv_t'
         df1 = H[:,1]
         df2 = H[:,2]
         df3 = -(df1 + df2)
@@ -193,6 +194,7 @@ end
 function update_pos(obj::CGTriObject, dx::Vector{Float64})
     obj.x = obj.X + dx
     obj.x_node = reshape(obj.x, (obj.dim, obj.N))'
+    dx_node = reshape(dx, (obj.dim, obj.N))'
 
     G = [1 0; 0 1; -1 -1]
 

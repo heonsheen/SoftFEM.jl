@@ -59,7 +59,7 @@ surf_mesh = extract_surface(volume_mesh)
 
 mp = Dict{String,Float64}(
     "E" => 1.0,
-    "nu" => 0.25
+    "nu" => 0.35
 )
 mat = LinearElasticMaterial(mp, 0.01)
 
