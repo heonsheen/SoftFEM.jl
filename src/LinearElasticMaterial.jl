@@ -24,12 +24,14 @@ mutable struct LinearElasticMaterial <: Material
 end
 
 function compute_energy(F::Matrix{Float64}, mat::LinearElasticMaterial)
-    strain = 1/2 * (F + F') - Array{Float64}(I,2,2) # infinitesimal strain tensor
+    dim = size(F,1)
+    strain = 1/2 * (F + F') - Array{Float64}(I,dim,dim) # infinitesimal strain tensor
     mat.mu * tr(strain'*strain) + mat.lambda/2 * tr(strain)^2
 end
 
 function compute_PK1(F::Matrix{Float64}, mat::LinearElasticMaterial)
-    strain = 1/2 * (F + F') - Array{Float64}(I,2,2) #infinitesimal strain tensor
+    dim = size(F,1)
+    strain = 1/2 * (F + F') - Array{Float64}(I,dim,dim) #infinitesimal strain tensor
     2 * mat.mu * strain + mat.lambda * tr(strain) * I
 end
 
@@ -38,6 +40,22 @@ function compute_dP(F::Matrix{Float64}, dF::Matrix{Float64}, mat::LinearElasticM
 end
 
 function compute_C(F::Matrix{Float64}, mat::LinearElasticMaterial)
-    mat.mu * [2 0 0 0; 0 1 1 0; 0 1 1 0; 0 0 0 2] +
-        mat.lambda * [1 0 0 1; 0 0 0 0; 0 0 0 0; 1 0 0 1]
+    if size(F,1) == 2
+        mat.mu * [2 0 0 0; 0 1 1 0; 0 1 1 0; 0 0 0 2] +
+            mat.lambda * [1 0 0 1; 0 0 0 0; 0 0 0 0; 1 0 0 1]
+    else
+        I3 = Array(I,3,3)
+        I9 = Array(I,9,9)
+        Kmm =
+            [1     0     0     0     0     0     0     0     0;
+            0     0     0     1     0     0     0     0     0;
+            0     0     0     0     0     0     1     0     0;
+            0     1     0     0     0     0     0     0     0;
+            0     0     0     0     1     0     0     0     0;
+            0     0     0     0     0     0     0     1     0;
+            0     0     1     0     0     0     0     0     0;
+            0     0     0     0     0     1     0     0     0;
+            0     0     0     0     0     0     0     0     1]
+        mat.mu * (I9 + Kmm) + mat.lambda * (Kmm * vec(I3) * vec(I3)')
+    end
 end

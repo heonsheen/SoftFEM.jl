@@ -45,9 +45,12 @@ function compute_dP(F::Matrix{Float64}, dF::Matrix{Float64}, mat::NeohookeanMate
 end
 
 function compute_C(F::Matrix{Float64}, mat::NeohookeanMaterial)
+    dim = size(F,1)
+
     J = det(F)
     F_inv = inv(F)
 
-    mat.mu * Array{Float64}(I,4,4) + (mat.mu - mat.lambda * log(J)) * kron(F_inv,F_inv)
-        + mat.lambda * vec(F_inv') * vec(F_inv')'
+    mat.mu * Array{Float64}(I,dim^2,dim^2) + 
+        (mat.mu - mat.lambda * log(J)) * kron(F_inv,F_inv) + 
+        mat.lambda * vec(F_inv') * vec(F_inv')'
 end

@@ -1,5 +1,6 @@
 include("src/Geometry.jl")
 include("src/CGTriObject.jl")
+include("src/CGTetObject.jl")
 include("src/LinearElasticMaterial.jl")
 include("src/NeohookeanMaterial.jl")
 include("src/BackwardEuler.jl")
@@ -12,7 +13,7 @@ using UnicodePlots
 
 GT = GeometryTypes
 
-
+#=
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
@@ -30,7 +31,7 @@ ec = [1 5 4;
       5 7 4]
 
 mesh = Mesh(vertices, ec)
-#=
+=#
 points = [0 0 -1;
 	  sqrt(2) -sqrt(2) 0;
 	  sqrt(2) sqrt(2) 0;
@@ -45,18 +46,17 @@ for i in 1:n_points
 	vertices[i] = Vertex(Array{Float64}(points[i,:]))
 end
 
-ec = [2 3 6 7;
-      2 6 5 7;
-      3 4 6 7;
-      4 5 6 7;
-      2 6 3 1;
-      5 6 2 1;
-      6 4 3 1;
-      6 5 4 1]
+ec = [2 3 7 6;
+      2 6 7 5;
+      3 4 7 6;
+      4 5 7 6;
+      2 6 1 3;
+      5 6 1 2;
+      6 4 1 3;
+      6 5 1 4]
 
-volume_mesh = VolumeMesh(vertices, ec)
-surf_mesh = extract_surface(volume_mesh)
-=#
+mesh = VolumeMesh(vertices, ec)
+surf_mesh = extract_surface(mesh)
 
 mp = Dict{String,Float64}(
     "E" => 1.0,
@@ -64,38 +64,40 @@ mp = Dict{String,Float64}(
 )
 mat = NeohookeanMaterial(mp, 0.01)
 
-obj = CGTriObject(mesh, mat)
+obj = CGTetObject(mesh, mat)
 
-n_steps = 100
+n_steps = 500
 N = obj.N
 dim = obj.dim
 
 fixed = zeros(Bool, N*dim)
-for i in [5,6,11,12,17,18]
+for i in [19, 20, 21]
       fixed[i] = true
 end
 
 dt = 0.01
-g = repeat([0.0; -9.81], N)
+g = repeat([0.0; 0.0; -9.81], N)
 #u = zeros(N*dim*2)
 
-limits = Makie.IRect(-5, -5, 10, 10)
-scene = Makie.Scene(limits = limits)
+#limits = Makie.IRect(-5, -5, 10, 10)
+scene = Makie.Scene()
 node = Makie.Node(0.0)
 
-vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
-s1 = Makie.mesh!(scene, vts, mesh.ec, color = :blue, shading = false, show_axis = false)[end]
+vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
+s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
 Makie.display(scene)
 
 for timestep = 1:n_steps
+#while true
       u = [obj.x - obj.X; obj.v]
       u_new = backward_euler(u, obj, dt, fixed, g)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
       update_mesh(mesh, obj)
-      vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+      surf_mesh = extract_surface(mesh)
+      vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
       s1[1] = vts
 
       #u = u_new

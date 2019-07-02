@@ -123,6 +123,7 @@ mutable struct VolumeMesh
 ### Attributes
     n_vertices::Int64 # Number of vertices in the mesh
     n_cells::Int64 # Number of cells in the mesh
+    dim::Int64 # dimension of the mesh
     vertices::Array{Vertex} # Array of vertices in the mesh    
     half_faces::Array{Array{Array{HalfFace}}} # Array of anchor half-faces in the mesh
                                               #   (indices are (cell ID, local ID, anchor ID)
@@ -140,6 +141,7 @@ mutable struct VolumeMesh
         n_vertices = size(vertices,1)
         n_cells = size(ec,1)
         elem_dim = size(ec,2)
+        dim = 3
 
         # Hardcode half-face topology per cell
         cell_hf_topo = []
@@ -202,7 +204,7 @@ mutable struct VolumeMesh
             end
         end
 
-        new(n_vertices, n_cells, vertices, half_faces, ec, v2f, f2f, b2f)
+        new(n_vertices, n_cells, dim, vertices, half_faces, ec, v2f, f2f, b2f)
     end
 end
 
