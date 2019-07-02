@@ -1,6 +1,7 @@
 include("src/Geometry.jl")
 include("src/CGTriObject.jl")
 include("src/LinearElasticMaterial.jl")
+include("src/NeohookeanMaterial.jl")
 include("src/BackwardEuler.jl")
 
 import Makie
@@ -61,7 +62,7 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.35
 )
-mat = LinearElasticMaterial(mp, 0.01)
+mat = NeohookeanMaterial(mp, 0.01)
 
 obj = CGTriObject(mesh, mat)
 
