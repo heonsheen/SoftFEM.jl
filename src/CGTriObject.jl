@@ -24,6 +24,7 @@ mutable struct CGTriObject <: ElasticObject
     Dm_inv::Matrix{Float64} # array of Dm inverse ((dim * NT) x dim)
     F::Matrix{Float64} # array of deformation gradient ((dim * NT) x dim)
     F_inv::Matrix{Float64} # array of inverse deformation gradient ((dim * NT) x dim)
+    dF::Matrix{Float64} # array of deformation gradient differentials ((dim * NT) x dim)
     W::Vector{Float64} # reference volume of each element (NT x 1)
 
     T::Matrix{Float64} # mapping vectorized nodal position in a tri to 
@@ -68,6 +69,7 @@ mutable struct CGTriObject <: ElasticObject
         Dm_inv = zeros(dim*NT, dim)
         F = zeros(dim*NT, dim)
         F_inv = zeros(dim*NT, dim)
+        dF = zeros(dim*NT, dim)
         W = zeros(NT)
         
         T = zeros(4 * NT, 6)
@@ -126,7 +128,7 @@ mutable struct CGTriObject <: ElasticObject
         f_prev = spzeros(2*N, 1)
         
         new(N, NT, dim, x_node, X_node, ec, x, X, v, 
-            Ds, Dm, Dm_inv, F, F_inv, W, T, M, K_prev, f_prev, K0, mat)
+            Ds, Dm, Dm_inv, F, F_inv, dF, W, T, M, K_prev, f_prev, K0, mat)
     end
 end
 

@@ -22,6 +22,7 @@ abstract type ElasticObject
     Dm_inv::Matrix{Float64} # array of Dm inverse ((dim * NT) x dim)
     F::Matrix{Float64} # array of deformation gradient ((dim * NT) x dim)
     F_inv::Matrix{Float64} # array of inverse deformation gradient ((dim * NT) x dim)
+    dF::Matrix{Float64} # array of deformation gradient differentials ((dim * NT) x dim)
     W::Vector{Float64} # reference volume of each element (NT x 1)
 
     T::Matrix{Float64} # mapping vectorized nodal position in a tri to 
