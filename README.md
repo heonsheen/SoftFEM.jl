@@ -1,2 +1,2 @@
-# SoftFEM.jl
-Julia framework for soft body FEM simulation
+# SoftFEM_jl
+Soft body FEM simulation with Julia
