@@ -1,9 +1,9 @@
-include("src/Geometry.jl")
-include("src/CGTriObject.jl")
-include("src/CGTetObject.jl")
-include("src/LinearElasticMaterial.jl")
-include("src/NeohookeanMaterial.jl")
-include("src/BackwardEuler.jl")
+include("../src/Geometry.jl")
+include("../src/CGTriObject.jl")
+include("../src/CGTetObject.jl")
+include("../src/LinearElasticMaterial.jl")
+include("../src/NeohookeanMaterial.jl")
+include("../src/BackwardEuler.jl")
 
 import Makie
 #import AbstractPlotting
