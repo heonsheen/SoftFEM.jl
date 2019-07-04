@@ -23,6 +23,7 @@ function backward_euler(u::Vector{Float64},
     max_iters = 20
     iter = 0
 
+    # Newton steps to solve the system
     while true
         obj.x = obj.X + dx_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
@@ -30,12 +31,16 @@ function backward_euler(u::Vector{Float64},
         K = compute_stiffness_matrix(obj)
         f_el = compute_elastic_force(obj)
 
+        # stiffness matrix
         K = K[free_ind,free_ind]
+
+        # damping
+        B = obj.mat.alpha * M - obj.mat.beta * K
+
+        # force (RHS)
         f_el = f_el[free_ind]
         f_ext = M * g[free_ind]
-        f = f_el + f_ext
-
-        B = obj.mat.alpha * M - obj.mat.beta * K
+        f = f_el + f_ext + B*(v_new[free_ind])
 
         Dv = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)) \ 
                 (v_new[free_ind] - v[free_ind] - dt*(M\f))
@@ -48,8 +53,8 @@ function backward_euler(u::Vector{Float64},
         u_new[1:n] = dx + dt * (v_new)
         u_new[n+1:end] = v_new
 
-        # println("Dv^T Dv = ", Dv'*Dv)
-        # println("residual = ", residual)
+        println("Dv^T Dv = ", Dv'*Dv)
+        println("residual = ", residual)
         ((Dv'*Dv <= 1e-12) || (residual <= 1e-12) || iter >= max_iters) && break
     end
     

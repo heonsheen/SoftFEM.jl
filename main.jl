@@ -56,9 +56,9 @@ ec = [2 3 7 6;
       6 4 1 3;
       6 5 1 4]
 =#
-nx = 6
-ny = 6
-nz = 6
+nx = 10
+ny = 10
+nz = 10
 dx = 1.0 / (nx-1)
 dy = 1.0 / (ny-1)
 dz = 1.0 / (nz-1)
@@ -104,10 +104,10 @@ mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
 
 mp = Dict{String,Float64}(
-    "E" => 1.0,
+    "E" => 0.5,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [1.0, 1.0], 0.01)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01)
 
 obj = CGTetObject(mesh, mat)
 
@@ -142,5 +142,6 @@ Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       s1[1] = vts
 
       #u = u_new
+      println("timestep ", timestep)
       sleep(1/120)
 end
