@@ -11,6 +11,10 @@ abstract type Material
     E::Float64 # Young's modulus
     kappa::Float64 # bulk modulus
 
+    # damping
+    alpha::Float64 # Rayleigh damping multiplier for M
+    beta::Float64 # Rayleigh damping multiplier for K
+
     rho::Float64 # density
 =#
 end

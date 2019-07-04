@@ -107,11 +107,11 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, 0.01)
+mat = NeohookeanMaterial(mp, [1.0, 1.0], 0.01)
 
 obj = CGTetObject(mesh, mat)
 
-n_steps = 500
+n_steps = 100
 N = obj.N
 dim = obj.dim
 
@@ -128,8 +128,9 @@ s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
 Makie.display(scene)
 
-for timestep = 1:n_steps
+#for timestep = 1:n_steps
 #while true
+Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       u_new = backward_euler(u, obj, dt, fixed, g)
       dx = u_new[1:N*dim]

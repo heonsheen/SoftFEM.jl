@@ -12,14 +12,19 @@ mutable struct LinearElasticMaterial <: Material
     E::Float64 # Young's modulus
     kappa::Float64 # bulk modulus
 
+    # damping
+    alpha::Float64 # Rayleigh damping multiplier for M
+    beta::Float64 # Rayleigh damping multiplier for K
+
     rho::Float64 # density
 
 ### Constructor
     # mp is a Dict containing either YM and PR or Lamer parameters
-    function LinearElasticMaterial(mp::Dict{String,Float64}, rho::Float64)
+    function LinearElasticMaterial(mp::Dict{String,Float64}, damping::Vector{Float64}, rho::Float64)
         mp = compute_parameters(mp)
+        @assert (size(damping,1) == 2) "damping parameter array must be size 2"
 
-        new(mp["mu"], mp["lambda"], mp["nu"], mp["E"], mp["kappa"], rho)
+        new(mp["mu"], mp["lambda"], mp["nu"], mp["E"], mp["kappa"], damping[1], damping[2], rho)
     end
 end
 

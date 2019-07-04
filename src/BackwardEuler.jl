@@ -35,7 +35,7 @@ function backward_euler(u::Vector{Float64},
         f_ext = M * g[free_ind]
         f = f_el + f_ext
 
-        B = 0 * M - 0 * K # TODO: make this damping
+        B = obj.mat.alpha * M - obj.mat.beta * K
 
         Dv = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)) \ 
                 (v_new[free_ind] - v[free_ind] - dt*(M\f))
