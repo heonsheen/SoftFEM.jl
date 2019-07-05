@@ -56,9 +56,9 @@ ec = [2 3 7 6;
       6 4 1 3;
       6 5 1 4]
 =#
-nx = 6
-ny = 6
-nz = 6
+nx = 10
+ny = 10
+nz = 10
 dx = 1.0 / (nx-1)
 dy = 1.0 / (ny-1)
 dz = 1.0 / (nz-1)
@@ -104,14 +104,14 @@ mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
 
 mp = Dict{String,Float64}(
-    "E" => 1.0,
+    "E" => 0.5,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, 0.01)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01)
 
 obj = CGTetObject(mesh, mat)
 
-n_steps = 500
+n_steps = 100
 N = obj.N
 dim = obj.dim
 
@@ -128,8 +128,9 @@ s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
 Makie.display(scene)
 
-for timestep = 1:n_steps
+#for timestep = 1:n_steps
 #while true
+Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       u_new = backward_euler(u, obj, dt, fixed, g)
       dx = u_new[1:N*dim]
@@ -141,5 +142,6 @@ for timestep = 1:n_steps
       s1[1] = vts
 
       #u = u_new
+      println("timestep ", timestep)
       sleep(1/120)
 end

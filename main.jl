@@ -1,5 +1,6 @@
 include("src/Geometry.jl")
 include("src/CGTriObject.jl")
+include("src/DGTriObject.jl")
 include("src/CGTetObject.jl")
 include("src/LinearElasticMaterial.jl")
 include("src/NeohookeanMaterial.jl")
@@ -13,12 +14,12 @@ using UnicodePlots
 
 GT = GeometryTypes
 
-#=
+
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
 for i in 0:ny-1, j in 0:nx-1
-    vertices[i * nx + j + 1] = Vertex(Array{Float64}([2.0 - i, j]))
+    vertices[i * nx + j + 1] = Vertex(Array{Float64}([-1.0+j, -1.0+i]))
 end
 
 ec = [1 5 4;
@@ -31,7 +32,12 @@ ec = [1 5 4;
       5 7 4]
 
 mesh = Mesh(vertices, ec)
-=#
+
+fixed = zeros(Bool, nx*ny*2)
+for i in [13, 14, 15, 16, 17, 18]
+      fixed[i] = true
+end
+
 #=
 points = [0 0 -1;
 	  sqrt(2) -sqrt(2) 0;
@@ -56,6 +62,7 @@ ec = [2 3 7 6;
       6 4 1 3;
       6 5 1 4]
 =#
+#=
 nx = 10
 ny = 10
 nz = 10
@@ -99,32 +106,38 @@ for k = 0:nz-2, j = 0:ny-2, i = 0:nx-2
             ec[5*(cell_id-1)+5,:] = [x+nx, x+nx*ny, x+nx*(ny+1), x+nx*(ny+1)+1]
       end
 end
-
+=#
+#=
 mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
-
+=#
 mp = Dict{String,Float64}(
     "E" => 0.5,
     "nu" => 0.35
 )
 mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01)
 
-obj = CGTetObject(mesh, mat)
+obj = DGTriObject(mesh, mat)
 
 n_steps = 100
 N = obj.N
 dim = obj.dim
 
 dt = 0.01
-g = repeat([0.0; 0.0; -9.81], N)
+#g = repeat([0.0; 0.0; -9.81], N)
+g = repeat([0.0; -9.81], N)
 #u = zeros(N*dim*2)
 
 #limits = Makie.IRect(-5, -5, 10, 10)
 scene = Makie.Scene()
 node = Makie.Node(0.0)
-
+#=
 vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
 s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
+=#
+vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+s1 = Makie.mesh!(scene, vts, mesh.ec, color = :blue, shading = false, show_axis = false)[end]
+
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
 Makie.display(scene)
 
@@ -137,8 +150,9 @@ Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       v = u_new[N*dim+1:end]
 
       update_mesh(mesh, obj)
-      surf_mesh = extract_surface(mesh)
-      vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
+      #surf_mesh = extract_surface(mesh)
+      #vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
+      vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
       s1[1] = vts
 
       #u = u_new
