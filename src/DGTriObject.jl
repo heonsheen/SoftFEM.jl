@@ -48,6 +48,7 @@ mutable struct DGTriObject <: ElasticObject
         mat::Material)
         NT = mesh.n_faces
         N = NT * 3
+        N_CG = mesh.n_vertices
         dim = mesh.dim
         ec_CG = mesh.ec
 
@@ -56,7 +57,7 @@ mutable struct DGTriObject <: ElasticObject
         for t in 1:NT
             ec[t,:] = [3*(t-1)+1, 3*(t-1)+2, 3*t]
             for j in 1:3
-                DG_map[ec[t,j]] = mesh.ec[t,j]
+                DG_map[3*(t-1)+j] = mesh.ec[t,j]
             end
         end
 
@@ -69,7 +70,7 @@ mutable struct DGTriObject <: ElasticObject
             end
         end
 
-        x_node = [mesh.vertices[DG_map[i]].x[dim] for i in 1:N, j = 1:dim]
+        x_node = [mesh.vertices[DG_map[i]].x[j] for i in 1:N, j = 1:dim]
         X_node = x_node
 
         x = vec(reshape(x_node', (dim*N, 1)))
@@ -194,6 +195,20 @@ function compute_elastic_force(obj::DGTriObject)
     end
 
     f
+end
+
+function compute_interface_force(obj::DGTriObject)
+    # BZ implementation
+    # TODO: move BZ, IP specification to different struct/type
+    for e in obj.interface_elem
+        fi_m = e[1] # face index minus
+        fi_p = e[2] # face index plus
+
+        F_m = obj.F[2*(fi_m-1)+1:2*fi_m,:]
+        F_p = obj.F[2*(fi_p-1)+1:2*fi_p,:]
+
+        
+    end
 end
 
 function compute_force_differential(obj::DGTriObject)

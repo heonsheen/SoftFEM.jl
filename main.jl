@@ -19,17 +19,17 @@ nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
 for i in 0:ny-1, j in 0:nx-1
-    vertices[i * nx + j + 1] = Vertex(Array{Float64}([-1.0+j, -1.0+i]))
+    vertices[i * nx + j + 1] = Vertex(Array{Float64}([-1.0+i, -1.0+j]))
 end
 
-ec = [1 5 4;
-      1 2 5;
-      2 3 5;
-      3 6 5;
-      6 9 5;
-      8 5 9;
-      7 5 8;
-      5 7 4]
+ec = [1 4 5;
+      1 5 2;
+      2 5 3;
+      3 5 6;
+      6 5 9;
+      8 9 5;
+      7 8 5;
+      5 4 7]
 
 mesh = Mesh(vertices, ec)
 
