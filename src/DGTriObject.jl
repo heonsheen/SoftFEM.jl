@@ -17,7 +17,9 @@ mutable struct DGTriObject <: ElasticObject
     ec_CG::Matrix{Int64} # CG element connectivity
     DG_map::Vector{Int64} # Maps DG element indices to CG element indices
 
-    interface_elem::Vector{Tuple{Int64,Int64}} # DG Interface adjacent face indices per edge
+    NE::Int64 # number of interface edges
+    interface_edges::Array{Tuple{Int64,Int64}} # DG Interface edge list
+    interface_elem::Array{Tuple{Int64,Int64}} # DG Interface adjacent face indices per edge
 
     x::Vector{Float64} # current position in world coordinates ((dim * N) x 1)
     X::Vector{Float64} # reference position in world coordinates ((dim * N) x 1)
@@ -30,6 +32,10 @@ mutable struct DGTriObject <: ElasticObject
     F_inv::Matrix{Float64} # array of inverse deformation gradient ((dim * NT) x dim)
     dF::Matrix{Float64} # array of deformation gradient differentials ((dim * NT) x dim)
     W::Vector{Float64} # reference volume of each element (NT x 1)
+
+    L::Vector{Float64} # reference lengths of each interface edges (NE x 1)
+
+    b::Vector{Float64} # Translation components need for DG ((dim * NT) x 1)
 
     T::Matrix{Float64} # mapping vectorized nodal position in a tri to 
                        #   its vectorized deformation gradient (4NT by 6)
@@ -61,21 +67,28 @@ mutable struct DGTriObject <: ElasticObject
             end
         end
 
-        interface_elem = []
-        for t in 1:NT, i in 1:3
-            te = mesh.e2e[t, i]
-            # edge is not on boundary && edge not already in elem list
-            if te[2] != 0 && !((te[1],t) in interface_elem) 
-                push!(interface_elem, (t,te[1]))
-            end
-        end
-
         x_node = [mesh.vertices[DG_map[i]].x[j] for i in 1:N, j = 1:dim]
         X_node = x_node
 
         x = vec(reshape(x_node', (dim*N, 1)))
         X = vec(reshape(x_node', (dim*N, 1)))
         v = zeros(dim*N)
+
+        interface_elem = []
+        L = []
+        for t in 1:NT, i in 1:3
+            te = mesh.e2e[t, i]
+            # edge is not on boundary && edge not already in elem list
+            if te[2] != 0 && !((te[1],t) in interface_elem) 
+                push!(interface_elem, (t,te[1]))
+                he = mesh.half_edges[t][i]
+                X0 = mesh.vertices[he.origin].x
+                X1 = mesh.vertices[he.dest].x
+                push!(L, norm(X0-X1))
+            end
+        end
+        NE = size(interface_elem,1)
+        L = Vector{Float64}(L)
 
         G = [1 0; 0 1; -1 -1]
         I2 = Matrix{Float64}(I,2,2)
@@ -94,6 +107,7 @@ mutable struct DGTriObject <: ElasticObject
         F_inv = zeros(dim*NT, dim)
         dF = zeros(dim*NT, dim)
         W = zeros(NT)
+        b = zeros(dim*NT)
         
         T = zeros(4 * NT, 6)
 
@@ -150,8 +164,9 @@ mutable struct DGTriObject <: ElasticObject
         K_prev = spzeros(2*N, 2*N)
         f_prev = spzeros(2*N, 1)
         
-        new(N, NT, dim, x_node, X_node, ec, N_CG, ec_CG, DG_map, interface_elem,
-            x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, T, M, K_prev, f_prev, K0, mat)
+        new(N, NT, dim, x_node, X_node, ec, 
+            N_CG, ec_CG, DG_map, NE, interface_edges, interface_elem,
+            x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, b, T, M, K_prev, f_prev, K0, mat)
     end
 end
 
@@ -200,14 +215,23 @@ end
 function compute_interface_force(obj::DGTriObject)
     # BZ implementation
     # TODO: move BZ, IP specification to different struct/type
-    for e in obj.interface_elem
-        fi_m = e[1] # face index minus
-        fi_p = e[2] # face index plus
+    for e in 1:obj.NE
+        ef = obj.interface_elem[e]
+        fi_m = ef[1] # face index minus
+        fi_p = ef[2] # face index plus
 
         F_m = obj.F[2*(fi_m-1)+1:2*fi_m,:]
         F_p = obj.F[2*(fi_p-1)+1:2*fi_p,:]
 
-        
+        b_m = obj.b[2*(fi_m-1)+1:2*fi_m]
+        b_p = obj.b[2*(fi_p-1)+1:2*fi_p]
+
+        Dmi_m = obj.Dm_inv[2*(fi_m-1)+1:2*fi_m,:]
+        Dmi_p = obj.Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
+
+        len = obj.L[e]
+        P0 = obj.X_node[obj.DG_map[obj.interface_edges[e][1]],:]'
+        P1 = obj.X_node[obj.DG_map[obj.interface_edges[e][2]],:]'
     end
 end
 
@@ -244,6 +268,9 @@ function update_pos(obj::DGTriObject, dx::Vector{Float64})
         obj.F[2*t-1:2*t,:] = obj.Ds[2*t-1:2*t,:] * obj.Dm_inv[2*t-1:2*t,:]
         obj.F_inv[2*t-1:2*t,:] = obj.Dm[2*t-1:2*t,:] * inv(obj.Ds[2*t-1:2*t,:])
         obj.dF[2*t-1:2*t,:] = dx_t' * G * obj.Dm_inv[2*t-1:2*t,:]
+        X1 = obj.X_node[obj.ec[t,1],:]
+        x1 = obj.x_node[obj.ec[t,1],:]
+        obj.b[2*t-1:2*t] = x1 - obj.F[2*t-1:2*t,:] * X1
     end
 end
 

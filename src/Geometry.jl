@@ -26,7 +26,7 @@ mutable struct HalfEdge
 
 ### Constructors
     function HalfEdge(
-	origin::Int64,
+	    origin::Int64,
         dest::Int64)
 	if origin < 0 || dest < 0
 	    error("Invalid indexing.")
