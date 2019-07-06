@@ -232,6 +232,8 @@ function compute_interface_force(obj::DGTriObject)
         len = obj.L[e]
         P0 = obj.X_node[obj.DG_map[obj.interface_edges[e][1]],:]'
         P1 = obj.X_node[obj.DG_map[obj.interface_edges[e][2]],:]'
+
+        
     end
 end
 
