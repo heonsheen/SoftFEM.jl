@@ -85,6 +85,10 @@ mutable struct DGTriObject <: ElasticObject
                 X0 = mesh.vertices[he.origin].x
                 X1 = mesh.vertices[he.dest].x
                 push!(L, norm(X0-X1))
+
+                e_p = X1 - X0
+                n_p = [e_p[2], -e_p[1]]
+                
             end
         end
         NE = size(interface_elem,1)
