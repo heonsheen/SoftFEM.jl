@@ -18,7 +18,8 @@ mutable struct DGTriObject <: ElasticObject
     DG_map::Vector{Int64} # Maps DG element indices to CG element indices
 
     NE::Int64 # number of interface edges
-    interface_edges::Array{Tuple{Int64,Int64}} # DG Interface edge list
+    int_minus_edges::Array{Tuple{Int64,Int64}} # DG Interface edge list on the minus side
+    int_plus_edges::Array{Tuple{Int64,Int64}} # DG Interface edge list on the plus side
     interface_elem::Array{Tuple{Int64,Int64}} # DG Interface adjacent face indices per edge
 
     x::Vector{Float64} # current position in world coordinates ((dim * N) x 1)
@@ -76,15 +77,24 @@ mutable struct DGTriObject <: ElasticObject
         v = zeros(dim*N)
 
         interface_elem = []
+        int_minus_edges = []
+        int_plus_edges = []
         L = []
+        nor = []
         for t in 1:NT, i in 1:3
             te = mesh.e2e[t, i]
             # edge is not on boundary && edge not already in elem list
             if te[2] != 0 && !((te[1],t) in interface_elem) 
                 interface_elem = [interface_elem; (t,te[1])]
-                he = mesh.half_edges[t][i]
-                X0 = mesh.vertices[he.origin].x
-                X1 = mesh.vertices[he.dest].x
+                he_m = mesh.half_edges[te[1]][te[2]]
+                he_p = mesh.half_edges[t][i]
+                @assert he_m.origin == he_p.dest && he_m.dest == he_p.origin "Half edge pairing incorrect"
+                int_minus_edges = [int_minus_edges; 
+                                    (ec[te[1],te[2]], ec[te[1],mod(te[2],3)+1])]
+                int_plus_edges = [int_plus_edges; 
+                                    (ec[t,i], ec[t,mod(i,3)+1])]
+                X0 = mesh.vertices[he_p.origin].x
+                X1 = mesh.vertices[he_p.dest].x
                 L = [L; norm(X0-X1)]
 
                 e_p = X1 - X0
@@ -170,7 +180,7 @@ mutable struct DGTriObject <: ElasticObject
         f_prev = spzeros(2*N, 1)
         
         new(N, NT, dim, x_node, X_node, ec, 
-            N_CG, ec_CG, DG_map, NE, interface_edges, interface_elem,
+            N_CG, ec_CG, DG_map, NE, int_minus_edges, int_plus_edges, interface_elem,
             x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, nor, b, T, 
             M, K_prev, f_prev, K0, mat)
     end
@@ -236,8 +246,6 @@ function compute_interface_force(obj::DGTriObject)
         Dmi_p = obj.Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
 
         len = obj.L[e]
-        #v0 =
-        # TODO: This is probably not right 
         P0 = obj.X_node[obj.DG_map[obj.interface_edges[e][1]],:]'
         P1 = obj.X_node[obj.DG_map[obj.interface_edges[e][2]],:]'
 
