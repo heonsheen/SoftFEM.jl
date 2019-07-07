@@ -34,6 +34,7 @@ mutable struct DGTriObject <: ElasticObject
     W::Vector{Float64} # reference volume of each element (NT x 1)
 
     L::Vector{Float64} # reference lengths of each interface edges (NE x 1)
+    nor::Vector{Float64} # unit length outward normals of interface edges ((dim * NE) x 1)
 
     b::Vector{Float64} # Translation components need for DG ((dim * NT) x 1)
 
@@ -80,20 +81,20 @@ mutable struct DGTriObject <: ElasticObject
             te = mesh.e2e[t, i]
             # edge is not on boundary && edge not already in elem list
             if te[2] != 0 && !((te[1],t) in interface_elem) 
-                push!(interface_elem, (t,te[1]))
+                interface_elem = [interface_elem; (t,te[1])]
                 he = mesh.half_edges[t][i]
                 X0 = mesh.vertices[he.origin].x
                 X1 = mesh.vertices[he.dest].x
-                push!(L, norm(X0-X1))
+                L = [L; norm(X0-X1)]
 
                 e_p = X1 - X0
                 n_p = [e_p[2], -e_p[1]]
-                
+                n_p = normalize(n_p)
+                nor = [nor; n_p]
             end
         end
         NE = size(interface_elem,1)
-        L = Vector{Float64}(L)
-
+        
         G = [1 0; 0 1; -1 -1]
         I2 = Matrix{Float64}(I,2,2)
 
@@ -170,7 +171,8 @@ mutable struct DGTriObject <: ElasticObject
         
         new(N, NT, dim, x_node, X_node, ec, 
             N_CG, ec_CG, DG_map, NE, interface_edges, interface_elem,
-            x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, b, T, M, K_prev, f_prev, K0, mat)
+            x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, nor, b, T, 
+            M, K_prev, f_prev, K0, mat)
     end
 end
 
@@ -234,10 +236,13 @@ function compute_interface_force(obj::DGTriObject)
         Dmi_p = obj.Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
 
         len = obj.L[e]
+        #v0 =
+        # TODO: This is probably not right 
         P0 = obj.X_node[obj.DG_map[obj.interface_edges[e][1]],:]'
         P1 = obj.X_node[obj.DG_map[obj.interface_edges[e][2]],:]'
 
-        
+        n_p = obj.nor[2*(e-1)+1:2*e]
+
     end
 end
 
