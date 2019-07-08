@@ -144,7 +144,7 @@ g = repeat([0.0; -9.81], N)
 dg_g = map_to_DG(obj, g)
 
 #limits = Makie.IRect(-5, -5, 10, 10)
-scene = Makie.Scene(#=camera = Makie.cam3d!=#)
+scene = Makie.Scene(resolution = (750, 750))
 node = Makie.Node(0.0)
 #=
 vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
@@ -154,14 +154,17 @@ vts = [v_i.x[j] for v_i in dg_mesh.vertices, j = 1:2]
 s1 = Makie.mesh!(scene, vts, dg_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
 
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
-#=
+
 camera = Makie.cameracontrols(scene)
+#=
 Makie.@extractvalue camera (fov, near, projectiontype, lookat, eyeposition, upvector)
 dir_vector = eyeposition - lookat
 new_eyeposition = lookat + dir_vector * (1.0f0)
 Makie.update_cam!(scene, new_eyeposition, lookat)
 =#
-Makie.display(scene)
+Makie.update_cam!(scene, camera, 
+      GT.HyperRectangle{2,Float32}(Float32[-2.0, -2.0], Float32[4.0, 4.0]))
+scene.center = false
 
 #for timestep = 1:n_steps
 #while true
