@@ -1,6 +1,7 @@
 include("ElasticObject.jl")
 include("Geometry.jl")
 include("Material.jl")
+include("Integrals.jl")
 
 # Discontinous Galerkin method with Triangular Finite Elements
 mutable struct DGTriObject <: ElasticObject
@@ -246,11 +247,20 @@ function compute_interface_force(obj::DGTriObject)
         Dmi_p = obj.Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
 
         len = obj.L[e]
-        P0 = obj.X_node[obj.DG_map[obj.interface_edges[e][1]],:]'
-        P1 = obj.X_node[obj.DG_map[obj.interface_edges[e][2]],:]'
+
+        v0_m = obj.int_minus_edges[e][1]
+        v1_m = obj.int_minus_edges[e][2]
+        v0_p = obj.int_plus_edges[e][1]
+        v1_p = obj.int_plus_edges[e][2]
+
+        P0 = obj.X_node[v0_p,:]'
+        P1 = obj.X_node[v1_p,:]'
 
         n_p = obj.nor[2*(e-1)+1:2*e]
 
+        for i = 1:3, j = 1:2
+
+        end
     end
 end
 
