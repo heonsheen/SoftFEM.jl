@@ -16,6 +16,8 @@ abstract type Material
     beta::Float64 # Rayleigh damping multiplier for K
 
     rho::Float64 # density
+
+    eta::Float64 # DG jump parameter
 =#
 end
 

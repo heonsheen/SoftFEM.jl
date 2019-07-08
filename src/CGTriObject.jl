@@ -73,7 +73,7 @@ mutable struct CGTriObject <: ElasticObject
         
         T = zeros(4 * NT, 6)
 
-        nnz = 0
+        nnz = 0 
 
         for t in 1:NT
             X_t = X_node[[ec[t,i] for i in 1:3],:]

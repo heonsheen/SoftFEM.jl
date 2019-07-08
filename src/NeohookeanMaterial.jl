@@ -18,13 +18,17 @@ mutable struct NeohookeanMaterial <: Material
 
     rho::Float64 # density
 
+    eta::Float64 # DG jump parameter
+
 ### Constructor
     # mp is a Dict containing either YM and PR or Lamer parameters
-    function NeohookeanMaterial(mp::Dict{String,Float64}, damping::Vector{Float64}, rho::Float64)
+    function NeohookeanMaterial(
+        mp::Dict{String,Float64}, damping::Vector{Float64}, rho::Float64, eta::Float64 = 0.0)
         mp = compute_parameters(mp)
         @assert (size(damping,1) == 2) "damping parameter array must be size 2"
 
-        new(mp["mu"], mp["lambda"], mp["nu"], mp["E"], mp["kappa"], damping[1], damping[2], rho)
+        new(mp["mu"], mp["lambda"], mp["nu"], mp["E"], mp["kappa"], 
+            damping[1], damping[2], rho, eta)
     end
 end
 

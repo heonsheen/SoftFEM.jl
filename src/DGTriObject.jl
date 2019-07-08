@@ -187,7 +187,7 @@ mutable struct DGTriObject <: ElasticObject
     end
 end
 
-function compute_stiffness_matrix(obj::DGTriObject)
+function compute_elastic_stiffness_matrix(obj::DGTriObject)
     I = zeros(Int64,9*4*obj.NT)
     J = zeros(Int64,9*4*obj.NT)
     V = zeros(Float64,9*4*obj.NT)
@@ -229,9 +229,14 @@ function compute_elastic_force(obj::DGTriObject)
     f
 end
 
-function compute_interface_force(obj::DGTriObject)
+function compute_interface_stiffness_matrix(obj::DGTriObject)
     # BZ implementation
     # TODO: move BZ, IP specification to different struct/type
+    I = zeros(Int64,9*4*obj.NT)
+    J = zeros(Int64,9*4*obj.NT)
+    V = zeros(Float64,9*4*obj.NT)
+    nnz = 0
+
     for e in 1:obj.NE
         ef = obj.interface_elem[e]
         fi_m = ef[1] # face index minus
@@ -253,15 +258,154 @@ function compute_interface_force(obj::DGTriObject)
         v0_p = obj.int_plus_edges[e][1]
         v1_p = obj.int_plus_edges[e][2]
 
-        P0 = obj.X_node[v0_p,:]'
-        P1 = obj.X_node[v1_p,:]'
+        P0 = obj.X_node[v0_p,:]
+        P1 = obj.X_node[v1_p,:]
 
         n_p = obj.nor[2*(e-1)+1:2*e]
 
-        for i = 1:3, j = 1:2
+        I2 = Matrix{Float64}(I, 2, 2)
+        G = [1 0; 0 1; -1 -1]
+        bary = [1 0 0]
+        eta_t = obj.mat.eta * len * (1.0/obj.W[fi_m] + 1.0/obj.W[fi_p]);
 
+        for i = 1:3, j = 1:2, k = 1:3, l = 1:2
+            # minus side element
+            dFj_m = I2[:,j] * G[i,:]' * Dmi_m
+            dFl_m = I2[:,l] * G[k,:]' * Dmi_m
+            dbj_m = I2[:,j] * bary[i] - 
+                I2[:,j] * G[i,:]' * Dmi_m * obj.X_node[obj.ec[fi_m,1],:]
+            dbl_m = I2[:,l] * bary[k] - 
+                I2[:,l] * G[k,:]' * Dmi_m * obj.X_node[obj.ec[fi_m,1],:]
+
+            # plus side element
+            dFj_p = I2[:,j] * G[i,:]' * Dmi_p
+            dFl_p = I2[:,l] * G[k,:]' * Dmi_p
+            dbj_p = I2[:,j] * bary[i] - 
+                I2[:,j] * G[i,:]' * Dmi_p * obj.X_node[obj.ec[fi_p,1],:]
+            dbl_p = I2[:,l] * bary[k] - 
+                I2[:,l] * G[k,:]' * Dmi_p * obj.X_node[obj.ec[fi_p,1],:]    
+            
+            # d/dx-^l, d/dx-^j E    
+            A_mm = dFj_m' * dFl_m + dFl_m' * dFj_m
+            B_mm = 2 * dbl_m' * dFj_m + 2 * dbj_m' * dFl_m
+            c_mm = dbj_m' * dbl_m + dbl_m' * dbj_m
+
+            ddE_mm = quadratic_line_int(A_mm, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_mm), P0, P1) + 
+                    const_line_int(c_mm, P0, P1)
+            push!(I, 2*(obj.ec[fi_m,k]-1)+l)
+            push!(J, 2*(obj.ec[fi_m,i]-1)+j)
+            push!(V, 0.5 * eta_t * ddE_mm)
+
+            # d/dx+^l, d/dx-^j E  
+            A_pm = -dFj_m' * dFl_p - dFl_p' * dFj_m
+            B_pm = 2 * -dbl_p' * dFj_m + 2 * dbj_m' * -dFl_p
+            c_pm = dbj_m' * -dbl_p + -dbl_p' * dbj_m
+
+            ddE_pm = quadratic_line_int(A_pm, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_pm), P0, P1) + 
+                    const_line_int(c_pm, P0, P1)
+            push!(I, 2*(obj.ec[fi_p,k]-1)+l)
+            push!(J, 2*(obj.ec[fi_m,i]-1)+j)
+            push!(V, 0.5 * eta_t * ddE_pm)
+        
+            # d/dx-^l, d/dx+^j E  
+            A_mp = -dFj_p' * dFl_m - dFl_m' * dFj_p
+            B_mp = 2 * dbl_m' * -dFj_p + 2 * -dbj_p' * dFl_m
+            c_mp = -dbj_p' * dbl_m + dbl_m' * -dbj_p
+
+            ddE_mp = quadratic_line_int(A_mp, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_mp), P0, P1) + 
+                    const_line_int(c_mp, P0, P1)
+            push!(I, 2*(obj.ec[fi_m,k]-1)+l)
+            push!(J, 2*(obj.ec[fi_p,i]-1)+j)
+            push!(V, 0.5 * eta_t * ddE_mp)
+
+            # d/dx+^l, d/dx+^j E  
+            A_pp = dFj_p' * dFl_p + dFl_p' * dFj_p
+            B_pp = 2 * -dbl_p' * -dFj_p + 2 * -dbj_p' * -dFl_p
+            c_pp = -dbj_p' * -dbl_p + -dbl_p' * -dbj_p
+
+            ddE_pp = quadratic_line_int(A_pp, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_pp), P0, P1) + 
+                    const_line_int(c_pp, P0, P1)
+            push!(I, 2*(obj.ec[fi_p,k]-1)+l)
+            push!(J, 2*(obj.ec[fi_p,i]-1)+j)
+            push!(V, 0.5 * eta_t * ddE_pp)
         end
     end
+
+    sparse(I, J, V, 2*obj.N, 2*obj.N)
+end
+
+function compute_interface_force(obj::DGTriObject)
+    # BZ implementation
+    # TODO: move BZ, IP specification to different struct/type
+    f = zeros(Float64, obj.dim * obj.N)
+
+    for e in 1:obj.NE
+        ef = obj.interface_elem[e]
+        fi_m = ef[1] # face index minus
+        fi_p = ef[2] # face index plus
+
+        F_m = obj.F[2*(fi_m-1)+1:2*fi_m,:]
+        F_p = obj.F[2*(fi_p-1)+1:2*fi_p,:]
+
+        b_m = obj.b[2*(fi_m-1)+1:2*fi_m]
+        b_p = obj.b[2*(fi_p-1)+1:2*fi_p]
+
+        Dmi_m = obj.Dm_inv[2*(fi_m-1)+1:2*fi_m,:]
+        Dmi_p = obj.Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
+
+        len = obj.L[e]
+
+        v0_m = obj.int_minus_edges[e][1]
+        v1_m = obj.int_minus_edges[e][2]
+        v0_p = obj.int_plus_edges[e][1]
+        v1_p = obj.int_plus_edges[e][2]
+
+        P0 = obj.X_node[v0_p,:]
+        P1 = obj.X_node[v1_p,:]
+
+        n_p = obj.nor[2*(e-1)+1:2*e]
+
+        I2 = Matrix{Float64}(I, 2, 2)
+        G = [1 0; 0 1; -1 -1]
+        bary = [1 0 0]
+        eta_t = obj.mat.eta * len * (1.0/obj.W[fi_m] + 1.0/obj.W[fi_p]);
+
+        for i = 1:3, j = 1:2
+            # minus side element
+            dF_m = I2[:,j] * G[i,:]' * Dmi_m
+            db_m = I2[:,j] * bary[i] - 
+                I2[:,j] * G[i,:]' * Dmi_m * obj.X_node[obj.ec[fi_m,1],:]
+            
+            A_m = dF_m' * F_m + F_m' * dF_m - dF_m' * F_p - F_p' * dF_m
+            B_m = 2 * (b_m - b_p)' * dF_m + 2 * db_m' * (F_m - F_p)
+            c_m = db_m' * (b_m - b_p) + (b_m - b_p)' * db_m
+
+            dE_m = quadratic_line_int(A_m, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_m), P0, P1) + 
+                    const_line_int(c_m, P0, P1)
+            f[2*(obj.ec[fi_m,i]-1)+j] += -0.5 * eta_t * dE_m
+
+            # plus side element
+            dF_p = I2[:,j] * G[i,:]' * Dmi_p
+            db_p = I2[:,j] * bary[i] - 
+                I2[:,j] * G[i,:]' * Dmi_p * obj.X_node[obj.ec[fi_p,1],:]
+            
+            A_p = dF_p' * F_p + F_p' * dF_p - dF_p' * F_m - F_m' * dF_p
+            B_p = 2 * (b_m - b_p)' * -dF_p + 2 * -db_p' * (F_m - F_p)
+            c_p = -db_p' * (b_m - b_p) + (b_m - b_p)' * -db_p
+
+            dE_p = quadratic_line_int(A_p, P0, P1) + 
+                    linear_line_int(Matrix{Float64}(B_p), P0, P1) + 
+                    const_line_int(c_p, P0, P1)
+            f[2*(obj.ec[fi_p,i]-1)+j] += -0.5 * eta_t * dE_p
+        end
+    end
+
+    f
 end
 
 function compute_force_differential(obj::DGTriObject)
@@ -302,9 +446,18 @@ function update_pos(obj::DGTriObject, dx::Vector{Float64})
         obj.b[2*t-1:2*t] = x1 - obj.F[2*t-1:2*t,:] * X1
     end
 end
-
+#=
 function update_mesh(mesh::Mesh, obj::DGTriObject)
     for i in 1:obj.N
         mesh.vertices[i].x = obj.x_node[i,:]
     end
+end
+=#
+function get_DG_mesh(obj::DGTriObject)
+    vertices = Array{Vertex}(undef, obj.N)
+    for i in 1:obj.N
+        vertices[i] = Vertex(obj.x_node[i,:])
+    end
+    mesh = Mesh(vertices, obj.ec)
+    mesh
 end

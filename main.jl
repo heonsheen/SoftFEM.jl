@@ -14,7 +14,7 @@ using UnicodePlots
 
 GT = GeometryTypes
 
-
+#=
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
@@ -37,6 +37,19 @@ fixed = zeros(Bool, nx*ny*2)
 for i in [13, 14, 15, 16, 17, 18]
       fixed[i] = true
 end
+=#
+vertices = Array{Vertex}(undef, 4)
+vertices[1] = Vertex(Array{Float64}([0.0, 1.0]))
+vertices[2] = Vertex(Array{Float64}([-0.5, 0.0]))
+vertices[3] = Vertex(Array{Float64}([0.5, 0.0]))
+vertices[4] = Vertex(Array{Float64}([0.0, -1.0]))
+
+ec = [1 2 3; 2 4 3]
+
+mesh = Mesh(vertices, ec)
+fixed = zeros(Bool, 8)
+fixed[1] = true
+fixed[2] = true
 
 #=
 points = [0 0 -1;
@@ -115,9 +128,10 @@ mp = Dict{String,Float64}(
     "E" => 0.5,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01, 1.0)
 
 obj = DGTriObject(mesh, mat)
+dg_mesh = get_DG_mesh(obj)
 
 n_steps = 100
 N = obj.N
@@ -135,14 +149,15 @@ node = Makie.Node(0.0)
 vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
 s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
 =#
-vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
-s1 = Makie.mesh!(scene, vts, mesh.ec, color = :blue, shading = false, show_axis = false)[end]
+vts = [v_i.x[j] for v_i in dg_mesh.vertices, j = 1:2]
+s1 = Makie.mesh!(scene, vts, dg_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
 
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), linewidth = 3, show_axis = false)[end]
 Makie.display(scene)
 
 #for timestep = 1:n_steps
 #while true
+#=
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       u_new = backward_euler(u, obj, dt, fixed, g)
@@ -159,3 +174,4 @@ Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       println("timestep ", timestep)
       sleep(1/120)
 end
+=#
