@@ -14,6 +14,7 @@ using UnicodePlots
 
 GT = GeometryTypes
 
+#=
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
@@ -36,6 +37,7 @@ fixed = zeros(Bool, nx*ny*2)
 for i in [13, 14, 15, 16, 17, 18]
       fixed[i] = true
 end
+=#
 #=
 vertices = Array{Vertex}(undef, 4)
 vertices[1] = Vertex(Array{Float64}([0.0, 1.0]))
@@ -74,6 +76,45 @@ ec = [2 3 7 6;
       6 4 1 3;
       6 5 1 4]
 =#
+
+nx = 8
+ny = 8
+dx = 1.0 / (nx-1)
+dy = 1.0 / (ny-1)
+
+fixed = zeros(Bool, nx*ny*2)
+
+points = zeros(Float64, nx*ny, 2)
+for j = 0:ny-1, i = 0:nx-1
+      x = i + j*nx + 1
+      points[x, :] = [-0.5 + i*dx, -0.5 + j*dy]
+      if j == ny-1
+            for d = 1:2
+                  fixed[2*(x-1)+d] = true
+            end
+      end
+end
+
+n_points = size(points,1)
+vertices = Array{Vertex}(undef, n_points)
+for i in 1:n_points
+      vertices[i] = Vertex(Array{Float64}(points[i,:]))
+end
+
+ec = zeros(Int64, 2*(nx-1)*(ny-1), 3)
+for j = 0:ny-2, i = 0:nx-2
+      cid = i + j * (nx-1) + 1
+      x = i + j*nx + 1
+      if mod(cid,2) == 1
+            ec[2*(cid-1)+1,:] = [x, x+1, x+nx]
+            ec[2*(cid-1)+2,:] = [x+1, x+nx+1, x+nx]
+      else
+            ec[2*(cid-1)+1,:] = [x, x+1, x+nx+1]
+            ec[2*(cid-1)+2,:] = [x, x+nx+1, x+nx]
+      end
+end
+
+mesh = Mesh(vertices, ec)
 #=
 nx = 10
 ny = 10
@@ -118,8 +159,7 @@ for k = 0:nz-2, j = 0:ny-2, i = 0:nx-2
             ec[5*(cell_id-1)+5,:] = [x+nx, x+nx*ny, x+nx*(ny+1), x+nx*(ny+1)+1]
       end
 end
-=#
-#=
+
 mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
 =#
@@ -127,7 +167,7 @@ mp = Dict{String,Float64}(
     "E" => 0.5,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01, 1.0)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01, 1.0, true)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)
@@ -164,7 +204,7 @@ new_eyeposition = lookat + dir_vector * (1.0f0)
 Makie.update_cam!(scene, new_eyeposition, lookat)
 =#
 Makie.update_cam!(scene, camera, 
-                  GT.HyperRectangle{2,Float32}(Float32[-2.0, -2.0], Float32[4.0, 4.0]))
+                  GT.HyperRectangle{2,Float32}(Float32[-1.5, -1.5], Float32[3.0, 3.0]))
 scene.center = false
 
 #for timestep = 1:n_steps

@@ -18,6 +18,7 @@ abstract type Material
     rho::Float64 # density
 
     eta::Float64 # DG jump parameter
+    DG_IP::Bool # DG IP method flag
 =#
 end
 

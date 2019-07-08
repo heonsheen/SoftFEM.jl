@@ -262,6 +262,7 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
         P1 = obj.X_node[v1_p,:]
 
         n_p = obj.nor[2*(e-1)+1:2*e]
+        n_m = -n_p
 
         I2 = Matrix{Float64}(I, 2, 2)
         G = [1 0; 0 1; -1 -1]
@@ -332,6 +333,61 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
             push!(II, 2*(obj.ec[fi_p,k]-1)+l)
             push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
             push!(V, 0.5 * eta_t * ddE_pp)
+
+            if obj.mat.DG_IP
+                P_m = compute_PK1(F_m, obj.mat)
+                P_p = compute_PK1(F_p, obj.mat)
+                T_jm = obj.T[4*(fi_m-1)+1:4*fi_m,2*(i-1)+j]
+                T_jp = obj.T[4*(fi_p-1)+1:4*fi_p,2*(i-1)+j]
+                T_lm = obj.T[4*(fi_m-1)+1:4*fi_m,2*(k-1)+l]
+                T_lp = obj.T[4*(fi_p-1)+1:4*fi_p,2*(k-1)+l]
+                C_m = compute_C(F_m, obj.mat)
+                C_p = compute_C(F_p, obj.mat)
+
+                # d/dx-^l, d/dx-^j E_IP
+                B_IPmm = 0.5 * kron(n_m, dFj_m)' * (C_m * T_lm) +
+                        0.5 * kron(n_m, dFl_m)' * (C_m * T_jm)
+                c_IPmm = 0.5 * dbj_m' * kron(n_m, I2)' * (C_m * T_lm) +
+                        0.5 * dbl_m' * kron(n_m, I2)' * (C_m * T_jm)
+                ddE_IPmm = linear_line_int(Matrix{Float64}(B_IPmm'), P0, P1) +
+                            const_line_int(c_IPmm, P0, P1)
+                push!(II, 2*(obj.ec[fi_m,k]-1)+l)
+                push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
+                push!(V, -0.5 * ddE_IPmm)
+
+                # d/dx+^l, d/dx-^j E_IP
+                B_IPpm = 0.5 * kron(n_m, dFj_m)' * (C_p * T_lp) -
+                        0.5 * kron(n_m, dFl_p)' * (C_m * T_jm)
+                c_IPpm = 0.5 * dbj_m' * kron(n_m, I2)' * (C_p * T_lp) -
+                        0.5 * dbl_p' * kron(n_m, I2)' * (C_m * T_jm)
+                ddE_IPpm = linear_line_int(Matrix{Float64}(B_IPpm'), P0, P1) +
+                            const_line_int(c_IPpm, P0, P1)
+                push!(II, 2*(obj.ec[fi_p,k]-1)+l)
+                push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
+                push!(V, -0.5 * ddE_IPpm)
+
+                # d/dx-^l, d/dx+^j E_IP
+                B_IPmp = -0.5 * kron(n_m, dFj_p)' * (C_m * T_lm) +
+                        0.5 * kron(n_m, dFl_m)' * (C_p * T_jp)
+                c_IPmp = -0.5 * dbj_p' * kron(n_m, I2)' * (C_m * T_lm) +
+                        0.5 * dbl_m' * kron(n_m, I2)' * (C_p * T_jp)
+                ddE_IPmp = linear_line_int(Matrix{Float64}(B_IPmp'), P0, P1) +
+                            const_line_int(c_IPmp, P0, P1)
+                push!(II, 2*(obj.ec[fi_m,k]-1)+l)
+                push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
+                push!(V, -0.5 * ddE_IPmp)
+
+                # d/dx+^l, d/dx+^j E_IP
+                B_IPpp = -0.5 * kron(n_m, dFj_p)' * (C_p * T_lp) -
+                        0.5 * kron(n_m, dFl_p)' * (C_p * T_jp)
+                c_IPpp = -0.5 * dbj_p' * kron(n_m, I2)' * (C_p * T_lp) -
+                        0.5 * dbl_p' * kron(n_m, I2)' * (C_p * T_jp)
+                ddE_IPpp = linear_line_int(Matrix{Float64}(B_IPpp'), P0, P1) +
+                            const_line_int(c_IPpp, P0, P1)
+                push!(II, 2*(obj.ec[fi_p,k]-1)+l)
+                push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
+                push!(V, -0.5 * ddE_IPpp)
+            end
         end
     end
 
@@ -368,6 +424,7 @@ function compute_interface_force(obj::DGTriObject)
         P1 = obj.X_node[v1_p,:]
 
         n_p = obj.nor[2*(e-1)+1:2*e]
+        n_m = -n_p
 
         I2 = Matrix{Float64}(I, 2, 2)
         G = [1 0; 0 1; -1 -1]
@@ -379,7 +436,13 @@ function compute_interface_force(obj::DGTriObject)
             dF_m = I2[:,j] * G[i,:]' * Dmi_m
             db_m = I2[:,j] * bary[i] - 
                 I2[:,j] * G[i,:]' * Dmi_m * obj.X_node[obj.ec[fi_m,1],:]
+
+            # plus side element
+            dF_p = I2[:,j] * G[i,:]' * Dmi_p
+            db_p = I2[:,j] * bary[i] - 
+                I2[:,j] * G[i,:]' * Dmi_p * obj.X_node[obj.ec[fi_p,1],:]    
             
+            # d/dx-^j E
             A_m = dF_m' * F_m + F_m' * dF_m - dF_m' * F_p - F_p' * dF_m
             B_m = 2 * (b_m - b_p)' * dF_m + 2 * db_m' * (F_m - F_p)
             c_m = db_m' * (b_m - b_p) + (b_m - b_p)' * db_m
@@ -389,11 +452,7 @@ function compute_interface_force(obj::DGTriObject)
                     const_line_int(c_m, P0, P1)
             f[2*(obj.ec[fi_m,i]-1)+j] += -0.5 * eta_t * dE_m
 
-            # plus side element
-            dF_p = I2[:,j] * G[i,:]' * Dmi_p
-            db_p = I2[:,j] * bary[i] - 
-                I2[:,j] * G[i,:]' * Dmi_p * obj.X_node[obj.ec[fi_p,1],:]
-            
+            # d/dx+^j E
             A_p = dF_p' * F_p + F_p' * dF_p - dF_p' * F_m - F_m' * dF_p
             B_p = 2 * (b_m - b_p)' * -dF_p + 2 * -db_p' * (F_m - F_p)
             c_p = -db_p' * (b_m - b_p) + (b_m - b_p)' * -db_p
@@ -402,6 +461,31 @@ function compute_interface_force(obj::DGTriObject)
                     linear_line_int(Matrix{Float64}(B_p), P0, P1) + 
                     const_line_int(c_p, P0, P1)
             f[2*(obj.ec[fi_p,i]-1)+j] += -0.5 * eta_t * dE_p
+
+            if obj.mat.DG_IP
+                P_m = compute_PK1(F_m, obj.mat)
+                P_p = compute_PK1(F_p, obj.mat)
+                T_m = obj.T[4*(fi_m-1)+1:4*fi_m,2*(i-1)+j]
+                T_p = obj.T[4*(fi_p-1)+1:4*fi_p,2*(i-1)+j]
+                C_m = compute_C(F_m, obj.mat)
+                C_p = compute_C(F_p, obj.mat)
+
+                B_IPm = 0.5 * kron(n_m, dF_m)' * vec(P_m + P_p) +
+                        0.5 * (kron(n_m, F_m) - kron(n_m, F_p))' * (C_m * T_m)
+                c_IPm = 0.5 * db_m' * kron(n_m, I2)' * vec(P_m + P_p) +
+                        0.5 * (b_m - b_p)' * kron(n_m, I2)' * (C_m * T_m)
+                dE_IPm = linear_line_int(Matrix{Float64}(B_IPm'), P0, P1) +
+                            const_line_int(c_IPm, P0, P1)
+                f[2*(obj.ec[fi_m,i]-1)+j] += 0.5 * dE_IPm
+
+                B_IPp = -0.5 * kron(n_m, dF_p)' * vec(P_m + P_p) +
+                        0.5 * (kron(n_m, F_m) - kron(n_m, F_p))' * (C_p * T_p)
+                c_IPp = -0.5 * db_p' * kron(n_m, I2)' * vec(P_m + P_p) +
+                        0.5 * (b_m - b_p)' * kron(n_m, I2)' * (C_p * T_p)
+                dE_IPp = linear_line_int(Matrix{Float64}(B_IPp'), P0, P1) +
+                            const_line_int(c_IPp, P0, P1)
+                f[2*(obj.ec[fi_p,i]-1)+j] += 0.5 * dE_IPp
+            end
         end
     end
 
@@ -454,13 +538,7 @@ function update_pos(obj::DGTriObject, dx::Vector{Float64})
         obj.b[2*t-1:2*t] = x1 - obj.F[2*t-1:2*t,:] * X1
     end
 end
-#=
-function update_mesh(mesh::Mesh, obj::DGTriObject)
-    for i in 1:obj.N
-        mesh.vertices[i].x = obj.x_node[i,:]
-    end
-end
-=#
+
 function get_DG_mesh(obj::DGTriObject)
     vertices = Array{Vertex}(undef, obj.N)
     for i in 1:obj.N
