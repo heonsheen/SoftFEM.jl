@@ -188,8 +188,8 @@ mutable struct DGTriObject <: ElasticObject
 end
 
 function compute_elastic_stiffness_matrix(obj::DGTriObject)
-    I = zeros(Int64,9*4*obj.NT)
-    J = zeros(Int64,9*4*obj.NT)
+    II = zeros(Int64,9*4*obj.NT)
+    JJ = zeros(Int64,9*4*obj.NT)
     V = zeros(Float64,9*4*obj.NT)
     nnz = 0
     for t in 1:obj.NT
@@ -201,14 +201,14 @@ function compute_elastic_stiffness_matrix(obj::DGTriObject)
         K_t = 1/2 * (K_t + K_t')
 
         for i in 1:3, j in 1:3
-            I[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
-            J[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,j]-1)+1:2*obj.ec[t,j])', 2, 1), 4, 1)
+            II[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
+            JJ[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,j]-1)+1:2*obj.ec[t,j])', 2, 1), 4, 1)
             V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
             nnz += 4
         end
     end
 
-    sparse(I, J, V, 2*obj.N, 2*obj.N)
+    sparse(II, JJ, V, 2*obj.N, 2*obj.N)
 end 
 
 function compute_elastic_force(obj::DGTriObject)
@@ -232,9 +232,9 @@ end
 function compute_interface_stiffness_matrix(obj::DGTriObject)
     # BZ implementation
     # TODO: move BZ, IP specification to different struct/type
-    I = zeros(Int64,9*4*obj.NT)
-    J = zeros(Int64,9*4*obj.NT)
-    V = zeros(Float64,9*4*obj.NT)
+    II = []
+    JJ = []
+    V = []
     nnz = 0
 
     for e in 1:obj.NE
@@ -293,8 +293,8 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
             ddE_mm = quadratic_line_int(A_mm, P0, P1) + 
                     linear_line_int(Matrix{Float64}(B_mm), P0, P1) + 
                     const_line_int(c_mm, P0, P1)
-            push!(I, 2*(obj.ec[fi_m,k]-1)+l)
-            push!(J, 2*(obj.ec[fi_m,i]-1)+j)
+            push!(II, 2*(obj.ec[fi_m,k]-1)+l)
+            push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
             push!(V, 0.5 * eta_t * ddE_mm)
 
             # d/dx+^l, d/dx-^j E  
@@ -305,8 +305,8 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
             ddE_pm = quadratic_line_int(A_pm, P0, P1) + 
                     linear_line_int(Matrix{Float64}(B_pm), P0, P1) + 
                     const_line_int(c_pm, P0, P1)
-            push!(I, 2*(obj.ec[fi_p,k]-1)+l)
-            push!(J, 2*(obj.ec[fi_m,i]-1)+j)
+            push!(II, 2*(obj.ec[fi_p,k]-1)+l)
+            push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
             push!(V, 0.5 * eta_t * ddE_pm)
         
             # d/dx-^l, d/dx+^j E  
@@ -317,8 +317,8 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
             ddE_mp = quadratic_line_int(A_mp, P0, P1) + 
                     linear_line_int(Matrix{Float64}(B_mp), P0, P1) + 
                     const_line_int(c_mp, P0, P1)
-            push!(I, 2*(obj.ec[fi_m,k]-1)+l)
-            push!(J, 2*(obj.ec[fi_p,i]-1)+j)
+            push!(II, 2*(obj.ec[fi_m,k]-1)+l)
+            push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
             push!(V, 0.5 * eta_t * ddE_mp)
 
             # d/dx+^l, d/dx+^j E  
@@ -329,13 +329,13 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
             ddE_pp = quadratic_line_int(A_pp, P0, P1) + 
                     linear_line_int(Matrix{Float64}(B_pp), P0, P1) + 
                     const_line_int(c_pp, P0, P1)
-            push!(I, 2*(obj.ec[fi_p,k]-1)+l)
-            push!(J, 2*(obj.ec[fi_p,i]-1)+j)
+            push!(II, 2*(obj.ec[fi_p,k]-1)+l)
+            push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
             push!(V, 0.5 * eta_t * ddE_pp)
         end
     end
 
-    sparse(I, J, V, 2*obj.N, 2*obj.N)
+    sparse(II, JJ, Array{Float64}(V), 2*obj.N, 2*obj.N)
 end
 
 function compute_interface_force(obj::DGTriObject)
@@ -408,6 +408,14 @@ function compute_interface_force(obj::DGTriObject)
     f
 end
 
+function compute_total_force(obj::DGTriObject)
+    compute_elastic_force(obj) + compute_interface_force(obj)
+end
+
+function compute_total_stiffness_matrix(obj::DGTriObject)
+    compute_elastic_stiffness_matrix(obj) + compute_interface_stiffness_matrix(obj)
+end
+
 function compute_force_differential(obj::DGTriObject)
     df = zeros(2*obj.N,1)
     for t in 1:obj.NT
@@ -460,4 +468,14 @@ function get_DG_mesh(obj::DGTriObject)
     end
     mesh = Mesh(vertices, obj.ec)
     mesh
+end
+
+# maps a (N_CG * dim) x 1 CG vector to a (N * dim) x 1 DG vector
+function map_to_DG(obj::DGTriObject, vec::Vector)
+    dg_vec = zeros(typeof(vec[1]), obj.N*obj.dim)
+    for i in 1:obj.N, j in 1:obj.dim
+        dg_vec[2*(i-1)+j] = vec[2*(obj.DG_map[i]-1)+j]
+    end
+
+    dg_vec
 end

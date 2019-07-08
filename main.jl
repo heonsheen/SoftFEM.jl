@@ -14,22 +14,21 @@ using UnicodePlots
 
 GT = GeometryTypes
 
-#=
 nx = 3
 ny = 3
 vertices = Array{Vertex}(undef, nx * ny)
-for i in 0:ny-1, j in 0:nx-1
-    vertices[i * nx + j + 1] = Vertex(Array{Float64}([-1.0+i, -1.0+j]))
+for j in 0:ny-1, i in 0:nx-1
+    vertices[j * nx + i + 1] = Vertex(Array{Float64}([-1.0+i, -1.0+j]))
 end
 
-ec = [1 4 5;
-      1 5 2;
-      2 5 3;
-      3 5 6;
-      6 5 9;
-      8 9 5;
-      7 8 5;
-      5 4 7]
+ec = [1 5 4;
+      1 2 5;
+      2 3 5;
+      3 6 5;
+      6 9 5;
+      8 5 9;
+      7 5 8;
+      5 7 4]
 
 mesh = Mesh(vertices, ec)
 
@@ -37,7 +36,7 @@ fixed = zeros(Bool, nx*ny*2)
 for i in [13, 14, 15, 16, 17, 18]
       fixed[i] = true
 end
-=#
+#=
 vertices = Array{Vertex}(undef, 4)
 vertices[1] = Vertex(Array{Float64}([0.0, 1.0]))
 vertices[2] = Vertex(Array{Float64}([-0.5, 0.0]))
@@ -50,7 +49,7 @@ mesh = Mesh(vertices, ec)
 fixed = zeros(Bool, 8)
 fixed[1] = true
 fixed[2] = true
-
+=#
 #=
 points = [0 0 -1;
 	  sqrt(2) -sqrt(2) 0;
@@ -132,8 +131,9 @@ mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01, 1.0)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)
+dg_fixed = map_to_DG(obj, fixed)
 
-n_steps = 100
+n_steps = 500
 N = obj.N
 dim = obj.dim
 
@@ -141,6 +141,7 @@ dt = 0.01
 #g = repeat([0.0; 0.0; -9.81], N)
 g = repeat([0.0; -9.81], N)
 #u = zeros(N*dim*2)
+dg_g = map_to_DG(obj, g)
 
 #limits = Makie.IRect(-5, -5, 10, 10)
 scene = Makie.Scene()
@@ -157,21 +158,20 @@ Makie.display(scene)
 
 #for timestep = 1:n_steps
 #while true
-#=
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
-      u_new = backward_euler(u, obj, dt, fixed, g)
+      u_new = backward_euler(u, obj, dt, dg_fixed, dg_g)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
-      update_mesh(mesh, obj)
+      #update_mesh(mesh, obj)
+      dg_mesh = get_DG_mesh(obj)
       #surf_mesh = extract_surface(mesh)
       #vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
-      vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+      vts = [v_i.x[j] for v_i in dg_mesh.vertices, j = 1:2]
       s1[1] = vts
 
       #u = u_new
       println("timestep ", timestep)
       sleep(1/120)
 end
-=#

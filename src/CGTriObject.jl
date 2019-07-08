@@ -131,7 +131,7 @@ mutable struct CGTriObject <: ElasticObject
     end
 end
 
-function compute_stiffness_matrix(obj::CGTriObject)
+function compute_total_stiffness_matrix(obj::CGTriObject)
     I = zeros(Int64,9*4*obj.NT)
     J = zeros(Int64,9*4*obj.NT)
     V = zeros(Float64,9*4*obj.NT)
@@ -155,7 +155,7 @@ function compute_stiffness_matrix(obj::CGTriObject)
     sparse(I, J, V, 2*obj.N, 2*obj.N)
 end 
 
-function compute_elastic_force(obj::CGTriObject)
+function compute_total_elastic_force(obj::CGTriObject)
     f = zeros(2*obj.N,1)
     for t in 1:obj.NT
         F_t = obj.F[2*t-1:2*t,:]

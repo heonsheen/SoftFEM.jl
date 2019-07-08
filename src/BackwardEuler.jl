@@ -28,8 +28,8 @@ function backward_euler(u::Vector{Float64},
         obj.x = obj.X + dx_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
 
-        K = compute_stiffness_matrix(obj)
-        f_el = compute_elastic_force(obj)
+        K = compute_total_stiffness_matrix(obj)
+        f_el = compute_total_force(obj)
 
         # stiffness matrix
         K = K[free_ind,free_ind]

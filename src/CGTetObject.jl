@@ -131,7 +131,7 @@ mutable struct CGTetObject <: ElasticObject
     end
 end
 
-function compute_stiffness_matrix(obj::CGTetObject)
+function compute_total_stiffness_matrix(obj::CGTetObject)
     I = zeros(Int64,16*9*obj.NT)
     J = zeros(Int64,16*9*obj.NT)
     V = zeros(Float64,16*9*obj.NT)
@@ -155,7 +155,7 @@ function compute_stiffness_matrix(obj::CGTetObject)
     sparse(I, J, V, 3*obj.N, 3*obj.N)
 end 
 
-function compute_elastic_force(obj::CGTetObject)
+function compute_total_elastic_force(obj::CGTetObject)
     f = zeros(3*obj.N,1)
     for t in 1:obj.NT
         F_t = obj.F[3*t-2:3*t,:]
