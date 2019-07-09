@@ -77,8 +77,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 5
-ny = 5
+nx = 3
+ny = 3
 dx = 1.0 / (nx-1)
 dy = 1.0 / (ny-1)
 
@@ -167,7 +167,7 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.05, 10.0, false)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.05, 0.5, false)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)

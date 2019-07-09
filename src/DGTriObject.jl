@@ -353,7 +353,7 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
                             const_line_int(c_IPmm, P0, P1)
                 push!(II, 2*(obj.ec[fi_m,k]-1)+l)
                 push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
-                push!(V, -0.5 * ddE_IPmm)
+                push!(V, 0.5 * ddE_IPmm)
 
                 # d/dx+^l, d/dx-^j E_IP
                 B_IPpm = 0.5 * kron(n_m, dFj_m)' * (C_p * T_lp) -
@@ -364,7 +364,7 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
                             const_line_int(c_IPpm, P0, P1)
                 push!(II, 2*(obj.ec[fi_p,k]-1)+l)
                 push!(JJ, 2*(obj.ec[fi_m,i]-1)+j)
-                push!(V, -0.5 * ddE_IPpm)
+                push!(V, 0.5 * ddE_IPpm)
 
                 # d/dx-^l, d/dx+^j E_IP
                 B_IPmp = -0.5 * kron(n_m, dFj_p)' * (C_m * T_lm) +
@@ -375,7 +375,7 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
                             const_line_int(c_IPmp, P0, P1)
                 push!(II, 2*(obj.ec[fi_m,k]-1)+l)
                 push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
-                push!(V, -0.5 * ddE_IPmp)
+                push!(V, 0.5 * ddE_IPmp)
 
                 # d/dx+^l, d/dx+^j E_IP
                 B_IPpp = -0.5 * kron(n_m, dFj_p)' * (C_p * T_lp) -
@@ -386,7 +386,7 @@ function compute_interface_stiffness_matrix(obj::DGTriObject)
                             const_line_int(c_IPpp, P0, P1)
                 push!(II, 2*(obj.ec[fi_p,k]-1)+l)
                 push!(JJ, 2*(obj.ec[fi_p,i]-1)+j)
-                push!(V, -0.5 * ddE_IPpp)
+                push!(V, 0.5 * ddE_IPpp)
             end
         end
     end
@@ -476,7 +476,7 @@ function compute_interface_force(obj::DGTriObject)
                         0.5 * (b_m - b_p)' * kron(n_m, I2)' * (C_m * T_m)
                 dE_IPm = linear_line_int(Matrix{Float64}(B_IPm'), P0, P1) +
                             const_line_int(c_IPm, P0, P1)
-                f[2*(obj.ec[fi_m,i]-1)+j] += 0.5 * dE_IPm
+                f[2*(obj.ec[fi_m,i]-1)+j] -= 0.5 * dE_IPm
 
                 B_IPp = -0.5 * kron(n_m, dF_p)' * vec(P_m + P_p) +
                         0.5 * (kron(n_m, F_m) - kron(n_m, F_p))' * (C_p * T_p)
@@ -484,7 +484,7 @@ function compute_interface_force(obj::DGTriObject)
                         0.5 * (b_m - b_p)' * kron(n_m, I2)' * (C_p * T_p)
                 dE_IPp = linear_line_int(Matrix{Float64}(B_IPp'), P0, P1) +
                             const_line_int(c_IPp, P0, P1)
-                f[2*(obj.ec[fi_p,i]-1)+j] += 0.5 * dE_IPp
+                f[2*(obj.ec[fi_p,i]-1)+j] -= 0.5 * dE_IPp
             end
         end
     end
