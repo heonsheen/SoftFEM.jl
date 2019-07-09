@@ -77,8 +77,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 8
-ny = 8
+nx = 5
+ny = 5
 dx = 1.0 / (nx-1)
 dy = 1.0 / (ny-1)
 
@@ -105,7 +105,7 @@ ec = zeros(Int64, 2*(nx-1)*(ny-1), 3)
 for j = 0:ny-2, i = 0:nx-2
       cid = i + j * (nx-1) + 1
       x = i + j*nx + 1
-      if mod(cid,2) == 1
+      if mod(i+j,2) == 1
             ec[2*(cid-1)+1,:] = [x, x+1, x+nx]
             ec[2*(cid-1)+2,:] = [x+1, x+nx+1, x+nx]
       else
@@ -164,16 +164,16 @@ mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
 =#
 mp = Dict{String,Float64}(
-    "E" => 0.5,
+    "E" => 1.0,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.01, 1.0, true)
+mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.05, 10.0, false)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)
 dg_fixed = map_to_DG(obj, fixed)
 
-n_steps = 500
+n_steps = 200
 N = obj.N
 dim = obj.dim
 
@@ -204,7 +204,7 @@ new_eyeposition = lookat + dir_vector * (1.0f0)
 Makie.update_cam!(scene, new_eyeposition, lookat)
 =#
 Makie.update_cam!(scene, camera, 
-                  GT.HyperRectangle{2,Float32}(Float32[-1.5, -1.5], Float32[3.0, 3.0]))
+                  GT.HyperRectangle{2,Float32}(Float32[-1.25, -1.75], Float32[2.5, 2.5]))
 scene.center = false
 
 #for timestep = 1:n_steps
