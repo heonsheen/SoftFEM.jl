@@ -1,11 +1,13 @@
 include("ElasticObject.jl")
 using SparseArrays
 
-function backward_euler(u::Vector{Float64},
-                        obj::ElasticObject,
-                        dt::Float64,
-                        fixed::Vector{Bool},
-                        g::Vector{Float64}) # gravity / external force
+# operator splitting with IM and EX, parallel solve elasticity
+# TODO: implement ERE
+function dg_mixed_integrator(u::Vector{Float64},
+                            obj::ElasticObject,
+                            dt::Float64,
+                            fixed::Vector{Bool},
+                            g::Vector{Float64}) # gravity / external force
     free_ind = .!fixed;
 
     n = obj.N * obj.dim
@@ -28,24 +30,28 @@ function backward_euler(u::Vector{Float64},
         obj.x = obj.X + dx_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
 
-        K = compute_total_stiffness_matrix(obj)
-        f_el = compute_total_force(obj)
+        K_el = compute_elastic_stiffness_matrix(obj)
+        f_el = compute_elastic_force(obj)
+
+        K_int = compute_interface_stiffness_matrix(obj)
+        f_int = compute_interface_elastic_force(obj)
 
         # stiffness matrix
-        K = K[free_ind,free_ind]
+        K_el = K_el[free_ind,free_ind]
+        K_int = K_int[free_ind, free_ind]
 
         # damping
-        B = obj.mat.alpha * M - obj.mat.beta * K
+        B = obj.mat.alpha * M - obj.mat.beta * (K_el + K_int)
 
         # force (RHS)
         f_el = f_el[free_ind]
+        f_int = f_int[free_ind]
         f_ext = M * g[free_ind]
-        f = f_el + f_ext + B*(v_new[free_ind])
+        f_1 = f_el + f_ext + 0.5*B*(v_new[free_ind])
+        f_2 = f_int + 0.5*B*(v_new[free_ind])
 
-        LHS = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B))
-        RHS = v_new[free_ind] - v[free_ind] - dt*(M\f)
-        Dv = LHS \ RHS
-                
+        Dv = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)) \ 
+                (v_new[free_ind] - v[free_ind] - dt*(M\f))
         v_new[free_ind] += Dv
 
         residual = (v_new[free_ind] - v[free_ind] - dt * (M\f))' * 

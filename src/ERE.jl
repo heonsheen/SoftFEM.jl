@@ -1,11 +1,11 @@
 include("ElasticObject.jl")
 using SparseArrays
 
-function backward_euler(u::Vector{Float64},
-                        obj::ElasticObject,
-                        dt::Float64,
-                        fixed::Vector{Bool},
-                        g::Vector{Float64}) # gravity / external force
+function ERE(u::Vector{Float64},
+                obj::ElasticObject,
+                dt::Float64,
+                fixed::Vector{Bool},
+                g::Vector{Float64}) # gravity / external force
     free_ind = .!fixed;
 
     n = obj.N * obj.dim
@@ -42,10 +42,8 @@ function backward_euler(u::Vector{Float64},
         f_ext = M * g[free_ind]
         f = f_el + f_ext + B*(v_new[free_ind])
 
-        LHS = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B))
-        RHS = v_new[free_ind] - v[free_ind] - dt*(M\f)
-        Dv = LHS \ RHS
-                
+        Dv = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)) \ 
+                (v_new[free_ind] - v[free_ind] - dt*(M\f))
         v_new[free_ind] += Dv
 
         residual = (v_new[free_ind] - v[free_ind] - dt * (M\f))' * 
