@@ -1,18 +1,21 @@
-include("src/Geometry.jl")
-include("src/CGTriObject.jl")
-include("src/DGTriObject.jl")
-include("src/CGTetObject.jl")
-include("src/LinearElasticMaterial.jl")
-include("src/NeohookeanMaterial.jl")
-include("src/BackwardEuler.jl")
-include("src/ForwardEuler.jl")
-include("src/DGMixedIntegrator.jl")
-
 import Makie
 import AbstractPlotting
 import GeometryTypes
 using UnicodePlots
+using Distributed
 #using IterativeSolvers
+
+source_dir = Base.source_dir()
+
+@eval @everywhere include(joinpath($source_dir, "src/Geometry.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/CGTriObject.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/DGTriObject.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/CGTetObject.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/LinearElasticMaterial.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/NeohookeanMaterial.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/BackwardEuler.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/ForwardEuler.jl"))
+@eval @everywhere include(joinpath($source_dir, "src/DGMixedIntegrator.jl"))
 
 GT = GeometryTypes
 
