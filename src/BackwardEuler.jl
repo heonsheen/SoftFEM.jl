@@ -6,7 +6,7 @@ function backward_euler(u::Vector{Float64},
                         dt::Float64,
                         fixed::Vector{Bool},
                         g::Vector{Float64}) # gravity / external force
-    free_ind = .!fixed;
+    free_ind = .!fixed
 
     n = obj.N * obj.dim
     n_fixed = convert(Int64, sum(fixed) / obj.dim)
@@ -36,14 +36,14 @@ function backward_euler(u::Vector{Float64},
         K = K[free_ind,free_ind]
 
         # damping
-        B = obj.mat.alpha * M - obj.mat.beta * K
+        B = obj.mat.alpha * M + obj.mat.beta * K
 
         # force (RHS)
         f_el = f_el[free_ind]
         f_ext = M * g[free_ind]
-        f = f_el + f_ext + B*(v_new[free_ind])
+        f = f_el + f_ext - B*(v_new[free_ind])
 
-        LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)
+        LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) + dt*(M\B)
         RHS = v_new[free_ind] - v[free_ind] - dt*(M\f)
         Dv = -LHS \ RHS
                 
