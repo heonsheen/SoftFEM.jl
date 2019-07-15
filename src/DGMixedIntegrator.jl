@@ -21,6 +21,15 @@ function dg_mixed_integrator(u::Vector{Float64},
     q_new = u_new[1:n]
     v_new = u_new[n+1:end]
 
+    f_cnt = 0
+    f_inds = []
+    for i = 1:obj.NT
+        inds = [obj.dim*(j-1)+k for k in 1:obj.dim, j in obj.ec[i,:]]
+        n_ft = convert(Int64, sum(free_ind[inds]))
+        push!(f_inds, f_cnt+1:f_cnt+n_ft)
+        f_cnt += n_ft
+    end
+
     M = obj.M
     M = M[free_ind,free_ind]
 
@@ -39,6 +48,7 @@ function dg_mixed_integrator(u::Vector{Float64},
     iter = 0
 
     # Newton steps to solve the system
+    # TODO: Implement line search
     while true
         obj.x = obj.X + q_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
@@ -56,26 +66,25 @@ function dg_mixed_integrator(u::Vector{Float64},
         f_els = f_els[free_ind]
         f_ext = M * g[free_ind]
         f_1 = f_els + f_ext + 0.5*B*(v_new[free_ind])
-        #=
+        
+        # parallel block diag
         Dv = zeros(Float64, n_free * obj.dim)
         Dvs = convert(SharedArray, Dv)
-        @sync @distributed for i in 1:n_free
-            inds = obj.dim*(i-1)+1:obj.dim*i
-            LHS = Matrix{Float64}(I,obj.dim,obj.dim) + 
-                    dt*dt*(M[inds,inds]\K_els[inds,inds]) - 
-                    dt*(M[inds,inds]\B[inds,inds])
+        @sync @distributed for i in 1:obj.NT
+            inds = f_inds[i]
+            LHS = I + dt*dt*(M[inds,inds]\K_els[inds,inds]) - 
+                        dt*(M[inds,inds]\B[inds,inds])
             RHS = v_new[free_ind][inds] - v[free_ind][inds] - 
                     Dv_int[inds] - dt*(M[inds,inds]\f_1[inds])
             Dvs[inds] = -LHS \ RHS
         end
         Dv = convert(Array, Dvs)
-        =#
         
+        #=
         LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K_els) - dt*(M\B)
         RHS = v_new[free_ind] - v[free_ind] - Dv_int - dt*(M\f_1)
-
         Dv = -LHS \ RHS
-        
+        =#
         v_new[free_ind] += Dv
         
         residual = (v_new[free_ind] - v[free_ind] - Dv_int - dt * (M\f_1))' * 
@@ -85,8 +94,9 @@ function dg_mixed_integrator(u::Vector{Float64},
         u_new[1:n] = q + dt * (v_new)
         u_new[n+1:end] = v_new
 
-        println("Dv^T Dv = ", Dv'*Dv)
-        println("residual = ", residual)
+        #println("Dv^T Dv = ", Dv'*Dv)
+        #println("residual = ", residual)
+
         ((Dv'*Dv <= 1e-12) || (residual <= 1e-12) || iter >= max_iters) && break
     end
     

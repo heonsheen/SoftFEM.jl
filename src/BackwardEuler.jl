@@ -24,6 +24,7 @@ function backward_euler(u::Vector{Float64},
     iter = 0
 
     # Newton steps to solve the system
+    # TODO: Implement line search
     while true
         obj.x = obj.X + q_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
