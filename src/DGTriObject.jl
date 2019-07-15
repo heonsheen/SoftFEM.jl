@@ -3,6 +3,10 @@ include("Geometry.jl")
 include("Material.jl")
 include("Integrals.jl")
 
+using Distributed
+using SharedArrays
+#using DistributedArrays
+
 # Discontinous Galerkin method with Triangular Finite Elements
 mutable struct DGTriObject <: ElasticObject
 ### Attributes 
@@ -191,8 +195,11 @@ function compute_elastic_stiffness_matrix(obj::DGTriObject)
     II = zeros(Int64,9*4*obj.NT)
     JJ = zeros(Int64,9*4*obj.NT)
     V = zeros(Float64,9*4*obj.NT)
-    nnz = 0
-    for t in 1:obj.NT
+    IIs = convert(SharedArray, II)
+    JJs = convert(SharedArray, JJ)
+    Vs = convert(SharedArray, V)
+    #nnz = 0
+    @sync @distributed for t in 1:obj.NT
         F_t = obj.F[2*t-1:2*t,:]
         T_t = obj.T[4*(t-1)+1:4*t,:]
         C = compute_C(F_t, obj.mat)
@@ -200,20 +207,23 @@ function compute_elastic_stiffness_matrix(obj::DGTriObject)
         K_t = obj.W[t] * T_t' * C * T_t
         K_t = 1/2 * (K_t + K_t')
 
+        nnz = 4 * 9 * (t-1) 
         for i in 1:3, j in 1:3
-            II[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
-            JJ[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,j]-1)+1:2*obj.ec[t,j])', 2, 1), 4, 1)
-            V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
+            IIs[nnz+1:nnz+4] = repeat((2*(obj.ec[t,i]-1)+1:2*obj.ec[t,i]), 2, 1)
+            JJs[nnz+1:nnz+4] = reshape(repeat((2*(obj.ec[t,j]-1)+1:2*obj.ec[t,j])', 2, 1), 4, 1)
+            Vs[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
             nnz += 4
         end
     end
 
-    sparse(II, JJ, V, 2*obj.N, 2*obj.N)
+    sparse(IIs, JJs, Vs, 2*obj.N, 2*obj.N)
 end 
 
 function compute_elastic_force(obj::DGTriObject)
     f = zeros(2*obj.N,1)
-    for t in 1:obj.NT
+    fs = convert(SharedArray, f)
+
+    @sync @distributed for t in 1:obj.NT
         F_t = obj.F[2*t-1:2*t,:]
         Dm_inv_t = obj.Dm_inv[2*t-1:2*t,:]
         H = -obj.W[t] * compute_PK1(F_t, obj.mat) * Dm_inv_t'
@@ -221,12 +231,12 @@ function compute_elastic_force(obj::DGTriObject)
         f2 = H[:,2]
         f3 = -(f1 + f2)
         T = obj.ec[t,:]
-        f[2*T[1]-1:2*T[1]] += f1
-        f[2*T[2]-1:2*T[2]] += f2
-        f[2*T[3]-1:2*T[3]] += f3
+        fs[2*T[1]-1:2*T[1]] += f1
+        fs[2*T[2]-1:2*T[2]] += f2
+        fs[2*T[3]-1:2*T[3]] += f3
     end
 
-    f
+    fs
 end
 
 function compute_interface_stiffness_matrix(obj::DGTriObject)

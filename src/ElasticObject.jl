@@ -39,11 +39,19 @@ abstract type ElasticObject
 end
 
 ### methods
-function compute_stiffness_matrix(obj::ElasticObject)
+function compute_elastic_stiffness_matrix(obj::ElasticObject)
     # abstract definition
 end 
 
 function compute_elastic_force(obj::ElasticObject)
+    # abstract definition
+end
+
+function compute_interface_stiffness_matrix(obj::ElasticObject)
+    # abstract definition
+end 
+
+function compute_interface_force(obj::ElasticObject)
     # abstract definition
 end
 

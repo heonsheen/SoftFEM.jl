@@ -11,10 +11,10 @@ function backward_euler(u::Vector{Float64},
     n = obj.N * obj.dim
     n_fixed = convert(Int64, sum(fixed) / obj.dim)
     n_free = convert(Int64, sum(free_ind) / obj.dim)
-    dx = u[1:n]
+    q = u[1:n]
     v = u[n+1:end]
     u_new = deepcopy(u)
-    dx_new = u_new[1:n]
+    q_new = u_new[1:n]
     v_new = u_new[n+1:end]
 
     M = obj.M
@@ -25,7 +25,7 @@ function backward_euler(u::Vector{Float64},
 
     # Newton steps to solve the system
     while true
-        obj.x = obj.X + dx_new + v_new * dt
+        obj.x = obj.X + q_new + v_new * dt
         update_pos(obj, obj.x - obj.X)
 
         K = compute_total_stiffness_matrix(obj)
@@ -42,9 +42,9 @@ function backward_euler(u::Vector{Float64},
         f_ext = M * g[free_ind]
         f = f_el + f_ext + B*(v_new[free_ind])
 
-        LHS = -(sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B))
+        LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K) - dt*(M\B)
         RHS = v_new[free_ind] - v[free_ind] - dt*(M\f)
-        Dv = LHS \ RHS
+        Dv = -LHS \ RHS
                 
         v_new[free_ind] += Dv
 
@@ -52,15 +52,17 @@ function backward_euler(u::Vector{Float64},
                     (v_new[free_ind] - v[free_ind] - dt * (M\f))
         iter = iter + 1
         
-        u_new[1:n] = dx + dt * (v_new)
+        u_new[1:n] = q + dt * (v_new)
         u_new[n+1:end] = v_new
 
         println("Dv^T Dv = ", Dv'*Dv)
         println("residual = ", residual)
         ((Dv'*Dv <= 1e-12) || (residual <= 1e-12) || iter >= max_iters) && break
     end
+
+    println("# iters = ", iter)
     
-    obj.x = obj.X + dx_new + v_new * dt
+    obj.x = obj.X + q_new + v_new * dt
     obj.v = v_new
     update_pos(obj, obj.x - obj.X)
 

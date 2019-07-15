@@ -5,6 +5,8 @@ include("src/CGTetObject.jl")
 include("src/LinearElasticMaterial.jl")
 include("src/NeohookeanMaterial.jl")
 include("src/BackwardEuler.jl")
+include("src/ForwardEuler.jl")
+include("src/DGMixedIntegrator.jl")
 
 import Makie
 import AbstractPlotting
@@ -77,8 +79,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 3
-ny = 3
+nx = 5
+ny = 5
 dx = 1.0 / (nx-1)
 dy = 1.0 / (ny-1)
 
@@ -167,7 +169,7 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.1, 0.1], 0.05, 0.5, false)
+mat = NeohookeanMaterial(mp, [0.0, 0.1], 0.05, 0.5, true)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)
@@ -211,7 +213,8 @@ scene.center = false
 #while true
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
-      u_new = backward_euler(u, obj, dt, dg_fixed, dg_g)
+      u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g)
+      #u_new = backward_euler(u, obj, dt, dg_fixed, dg_g)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
