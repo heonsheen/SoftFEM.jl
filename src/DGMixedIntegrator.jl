@@ -33,7 +33,7 @@ function dg_mixed_integrator(u::Vector{Float64},
     f_int = compute_interface_force(obj)
 
     Dv_int = dt * (M \ f_int[free_ind])
-    v_new[free_ind] += Dv_int
+    #v_new[free_ind] += Dv_int
 
     max_iters = 20
     iter = 0
