@@ -217,7 +217,7 @@ scene.center = false
 #while true
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
-      u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "EX")
+      u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "ERE")
       #u_new = ERE(u, obj, dt, dg_fixed, dg_g)
       #u_new = backward_euler(u, obj, dt, dg_fixed, dg_g)
       dx = u_new[1:N*dim]

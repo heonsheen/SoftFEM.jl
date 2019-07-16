@@ -2,6 +2,7 @@ include("ElasticObject.jl")
 using SparseArrays
 using SharedArrays
 using Distributed
+using ExpmV
 
 # operator splitting with IM and EX, parallel solve elasticity
 # TODO: implement ERE
@@ -42,12 +43,27 @@ function dg_mixed_integrator(u::Vector{Float64},
     K_int = K_int[free_ind, free_ind]
 
     f_int = compute_interface_force(obj)
+    f_int = f_int[free_ind]
 
+    B_int = obj.mat.alpha * M + obj.mat.beta * K_int
+    f_2 = f_int - B_int*(v_new[free_ind])
+
+    Dv_int = zeros(Float64,n)
     if int_int == "EX"
-        Dv_int = zeros(Float64,n)
-        Dv_int[free_ind] = dt * (M \ f_int[free_ind])
+        Dv_int[free_ind] = dt * (M \ f_int)
     elseif int_int == "ERE"
-        
+        J = [spzeros(obj.dim*n_free,obj.dim*n_free) sparse(I,obj.dim*n_free,obj.dim*n_free);
+            -M\K_int -M\B_int]
+        du = [v[free_ind]; M\f_2]
+        c_n = du - J*[q[free_ind]; v[free_ind]]
+        nJ = 2*obj.dim*n_free
+        A = [J c_n; spzeros(1,nJ+1)]
+        u_tilde = [q[free_ind]; v[free_ind]; 1]
+
+        #u_p = [sparse(I,nJ,nJ) spzeros(nJ,1)] * exp(dt*A) * u_tilde
+        I0 = [sparse(I,nJ,nJ) spzeros(nJ,1)] 
+        u_p = I0 * expmv(dt, A, u_tilde)
+        Dv_int[free_ind] = u_p[obj.dim*n_free+1:end] - v[free_ind]
     end
 
     max_iters = 20
