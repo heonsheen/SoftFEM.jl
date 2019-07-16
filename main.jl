@@ -173,7 +173,7 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.35
 )
-mat = NeohookeanMaterial(mp, [0.0, 0.1], 0.05, 0.5, true)
+mat = NeohookeanMaterial(mp, [0.0, 0.2], 0.05, 0.5, true)
 
 obj = DGTriObject(mesh, mat)
 dg_mesh = get_DG_mesh(obj)

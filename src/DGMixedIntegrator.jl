@@ -62,7 +62,7 @@ function dg_mixed_integrator(u::Vector{Float64},
 
         #u_p = [sparse(I,nJ,nJ) spzeros(nJ,1)] * exp(dt*A) * u_tilde
         I0 = [sparse(I,nJ,nJ) spzeros(nJ,1)] 
-        u_p = I0 * expmv(dt, A, u_tilde)
+        u_p = I0 * real(expmv(dt, A, u_tilde))
         Dv_int[free_ind] = u_p[obj.dim*n_free+1:end] - v[free_ind]
     end
 
@@ -96,7 +96,7 @@ function dg_mixed_integrator(u::Vector{Float64},
             @sync @distributed for i in 1:obj.NT
                 inds = f_inds[i]
                 LHS = I + dt*dt*(M[inds,inds]\K_els[inds,inds]) + 
-                            dt*(M[inds,inds]\B[inds,inds])
+                            dt*(M[inds,inds]\(B[inds,inds]))
                 RHS = v_new[free_ind][inds] - v[free_ind][inds] - 
                         Dv_int[free_ind][inds] - dt*(M[inds,inds]\f_1[inds])
                 Dvs[inds] = -LHS \ RHS
