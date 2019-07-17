@@ -83,10 +83,10 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 5
-ny = 13
+nx = 9
+ny = 9
 dx = 1.0 / (nx-1)
-dy = 3.0 / (ny-1)
+dy = 1.0 / (ny-1)
 
 fixed = zeros(Bool, nx*ny*2)
 
@@ -94,7 +94,7 @@ points = zeros(Float64, nx*ny, 2)
 for j = 0:ny-1, i = 0:nx-1
       x = i + j*nx + 1
       points[x, :] = [-0.5 + i*dx, -0.5 + j*dy]
-      if j == 0#ny-1
+      if j == ny-1
             for d = 1:2
                   fixed[2*(x-1)+d] = true
             end
@@ -170,92 +170,65 @@ mesh = VolumeMesh(vertices, ec)
 surf_mesh = extract_surface(mesh)
 =#
 mp = Dict{String,Float64}(
-    "E" => 1.0,
-    "nu" => 0.35
+    "E" => 2.5,
+    "nu" => 0.4
 )
-mat = NeohookeanMaterial(mp, 0*[0.00, 0.01], 0.005, 2.0, true)
+mat = NeohookeanMaterial(mp, [0.0, 0.1], 0.1, 2.5, true)
 
 obj = DGTriObject(mesh, mat)
-#obj = CGTriObject(mesh, mat)
-fixed = map_to_DG(obj, fixed)
+dg_mesh = get_DG_mesh(obj)
+dg_fixed = map_to_DG(obj, fixed)
 
-n_steps = 1000
+n_steps = 200
 N = obj.N
 dim = obj.dim
 
-dt = 0.01
+dt = 0.05
 #g = repeat([0.0; 0.0; -9.81], N)
 gy = 0#-9.81
-g = repeat([0.0; gy], N)
+g = repeat([0; gy], N)
 #u = zeros(N*dim*2)
-g = map_to_DG(obj, g)
-
-mesh = get_DG_mesh(obj)
+dg_g = map_to_DG(obj, g)
 
 #limits = Makie.IRect(-5, -5, 10, 10)
 scene = Makie.Scene(resolution = (750, 750))
 node = Makie.Node(0.0)
-
 #=
 vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
 s1 = Makie.mesh!(scene, vts, surf_mesh.ec, color = :blue, shading = false, show_axis = false)[end]
 =#
-vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
-s1 = Makie.mesh!(scene, vts, mesh.ec, color = :blue, 
+vts = [v_i.x[j] for v_i in dg_mesh.vertices, j = 1:2]
+s1 = Makie.mesh!(scene, vts, dg_mesh.ec, color = :blue, 
                   shading = false, show_axis = false)[end]
 s2 = Makie.wireframe!(scene[end][1], color = (:black, 0.6), 
                         linewidth = 3, show_axis = false)[end]
+
+camera = Makie.cameracontrols(scene)
 #=
 Makie.@extractvalue camera (fov, near, projectiontype, lookat, eyeposition, upvector)
 dir_vector = eyeposition - lookat
 new_eyeposition = lookat + dir_vector * (1.0f0)
 Makie.update_cam!(scene, new_eyeposition, lookat)
 =#
-scene.center = false
-#=
 Makie.update_cam!(scene, camera, 
-      GT.HyperRectangle{2,Float32}(Float32[-2.5, -1], Float32[5, 5]))
-=#
-camera = Makie.cameracontrols(scene)
-camera.area[] = GT.HyperRectangle{2,Float32}(Float32[-6, -1], Float32[12, 4])
-Makie.update_cam!(scene, camera)
-
-dx0 = zeros(Float64, 2*nx*ny)
-for j = 1:ny-1, i = 0:nx-1
-      p = i + j*nx + 1
-      pd = i + (j-1)*nx + 1
-      ed = points[p,:] - points[pd,:]
-
-      theta = -(j) * 0.7 * pi / (ny-1)
-      rot = [cos(theta) -sin(theta); sin(theta) cos(theta)]
-      ed_new = rot * ed * (1 + (nx/2 - i) / (1.2*nx))
-      #ed_new[1] += 0.1
-
-      dx0[2*(p-1)+1:2*p] = dx0[2*(pd-1)+1:2*pd] + ed_new - ed
-end
-
-dx0_dg = map_to_DG(obj, dx0)
-update_pos(obj, dx0_dg)
-#update_mesh(mesh, obj)
-mesh = get_DG_mesh(obj)
-vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
-s1[1] = vts
+                  GT.HyperRectangle{2,Float32}(Float32[-1.25, -1.75], Float32[2.5, 2.5]))
+scene.center = false
 
 #for timestep = 1:n_steps
 #while true
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       #u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "ERE")
-      #u_new = ERE(u, obj, dt, fixed, g)
-      u_new = backward_euler(u, obj, dt, fixed, g)
+      #u_new = ERE(u, obj, dt, dg_fixed, dg_g)
+      u_new = backward_euler(u, obj, dt, dg_fixed, dg_g)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
       #update_mesh(mesh, obj)
-      mesh = get_DG_mesh(obj)
+      dg_mesh = get_DG_mesh(obj)
       #surf_mesh = extract_surface(mesh)
       #vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
-      vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
+      vts = [v_i.x[j] for v_i in dg_mesh.vertices, j = 1:2]
       s1[1] = vts
 
       #u = u_new

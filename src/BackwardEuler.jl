@@ -20,7 +20,7 @@ function backward_euler(u::Vector{Float64},
     M = obj.M
     M = M[free_ind,free_ind]
 
-    max_iters = 20
+    max_iters = 40
     iter = 0
 
     # Newton steps to solve the system

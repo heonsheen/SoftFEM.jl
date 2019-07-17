@@ -66,6 +66,8 @@ function dg_mixed_integrator(u::Vector{Float64},
         Dv_int[free_ind] = u_p[obj.dim*n_free+1:end] - v[free_ind]
     end
 
+    #v_new[free_ind] += Dv_int[free_ind]
+
     max_iters = 20
     iter = 0
 
@@ -89,7 +91,7 @@ function dg_mixed_integrator(u::Vector{Float64},
             f_els = f_els[free_ind]
             f_ext = M * g[free_ind]
             f_1 = f_els + f_ext - B*(v_new[free_ind])
-            
+            #=
             # parallel block diag
             Dv = zeros(Float64, n_free * obj.dim)
             Dvs = convert(SharedArray, Dv)
@@ -102,12 +104,12 @@ function dg_mixed_integrator(u::Vector{Float64},
                 Dvs[inds] = -LHS \ RHS
             end
             Dv = convert(Array, Dvs)
+            =#
             
-            #=
             LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K_els) - dt*(M\B)
             RHS = v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt*(M\f_1)
             Dv = -LHS \ RHS
-            =#
+            
             v_new[free_ind] += Dv
             
             residual = (v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt * (M\f_1))' * 
@@ -125,6 +127,8 @@ function dg_mixed_integrator(u::Vector{Float64},
         
         println("# iters = ", iter)
     end
+
+    #v_new[free_ind] += Dv_int[free_ind]
 
     obj.x = obj.X + q_new + v_new * dt
     obj.v = v_new
