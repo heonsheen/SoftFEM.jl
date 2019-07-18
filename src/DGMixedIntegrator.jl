@@ -68,7 +68,7 @@ function dg_mixed_integrator(u::Vector{Float64},
 
     #v_new[free_ind] += Dv_int[free_ind]
 
-    max_iters = 20
+    max_iters = 40
     iter = 0
 
     if els_int == "IM"

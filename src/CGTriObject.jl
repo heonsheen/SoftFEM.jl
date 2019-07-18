@@ -32,7 +32,7 @@ mutable struct CGTriObject <: ElasticObject
 
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
-    f_prev::SparseMatrixCSC{Float64,Int64} # force vector of previous timestep
+    f_prev::Vector{Float64} # force vector of previous timestep
     K0::SparseMatrixCSC{Float64,Int64} # 
 
     mat::Material # elastic material description
@@ -124,7 +124,7 @@ mutable struct CGTriObject <: ElasticObject
         M = sparse(M_I, M_J, M_V, 2*N, 2*N)
         K0 = sparse(K0_I, K0_J, K0_V, 2*N, 2*N)
         K_prev = spzeros(2*N, 2*N)
-        f_prev = spzeros(2*N, 1)
+        f_prev = zeros(2*N)
         
         new(N, NT, dim, x_node, X_node, ec, x, X, v, 
             Ds, Dm, Dm_inv, F, F_inv, dF, W, T, M, K_prev, f_prev, K0, mat)
