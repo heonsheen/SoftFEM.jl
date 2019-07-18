@@ -51,7 +51,9 @@ mutable struct DGTriObject <: ElasticObject
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::SparseMatrixCSC{Float64,Int64} # force vector of previous timestep
-    K0::SparseMatrixCSC{Float64,Int64} # 
+    K0::SparseMatrixCSC{Float64,Int64} #
+    K0_els::SparseMatrixCSC{Float64,Int64} #
+    K0_int::SparseMatrixCSC{Float64,Int64} #
 
     mat::Material # elastic material description
     
@@ -116,9 +118,14 @@ mutable struct DGTriObject <: ElasticObject
         M_I = Vector{Int64}()
         M_J = Vector{Int64}()
         M_V = Vector{Float64}()
-        K0_I = zeros(Int64, 9*4*NT)
-        K0_J = zeros(Int64, 9*4*NT)
-        K0_V = zeros(Float64, 9*4*NT)
+
+        K0_els_I = zeros(Int64, 9*4*NT)
+        K0_els_J = zeros(Int64, 9*4*NT)
+        K0_els_V= zeros(Float64, 9*4*NT)
+
+        K0_int_I = zeros(Int64, 9*4*NT)
+        K0_int_J = zeros(Int64, 9*4*NT)
+        K0_int_V= zeros(Float64, 9*4*NT)
 
         Ds = zeros(dim*NT, dim)
         Dm = zeros(dim*NT, dim)
@@ -131,7 +138,7 @@ mutable struct DGTriObject <: ElasticObject
         
         T = zeros(4 * NT, 6)
 
-        nnz = 0
+        nnz_els = 0
 
         for t in 1:NT
             X_t = X_node[[ec[t,i] for i in 1:3],:]
@@ -167,27 +174,185 @@ mutable struct DGTriObject <: ElasticObject
             T_t = T[4*(t-1)+1:4*t,:]
             C = compute_C(I2, mat)
 
-            # Stiffness Matrix
+            # Elastic Stiffness Matrix
             K_t = W[t] * T_t' * C * T_t
             K_t = 1/2 * (K_t + K_t')
 
             for i in 1:3, j in 1:3
-                K0_I[nnz+1:nnz+4] = repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
-                K0_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,j]-1)+1:2*ec[t,j])', 2, 1), 4, 1)
-                K0_V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
-                nnz += 4
+                K0_els_I[nnz+1:nnz+4] = repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
+                K0_els_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,j]-1)+1:2*ec[t,j])', 2, 1), 4, 1)
+                K0_els_V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
+                nnz_els += 4
+            end
+        end
+
+        nnz_int = 0
+        # Inteface Stiffness Matrix
+        for e in 1:NE
+            ef = interface_elem[e]
+            fi_m = ef[1] # face index minus
+            fi_p = ef[2] # face index plus
+    
+            F_m = F[2*(fi_m-1)+1:2*fi_m,:]
+            F_p = F[2*(fi_p-1)+1:2*fi_p,:]
+    
+            b_m = b[2*(fi_m-1)+1:2*fi_m]
+            b_p = b[2*(fi_p-1)+1:2*fi_p]
+    
+            Dmi_m = Dm_inv[2*(fi_m-1)+1:2*fi_m,:]
+            Dmi_p = Dm_inv[2*(fi_p-1)+1:2*fi_p,:]
+    
+            len = L[e]
+    
+            v0_m = int_minus_edges[e][1]
+            v1_m = int_minus_edges[e][2]
+            v0_p = int_plus_edges[e][1]
+            v1_p = int_plus_edges[e][2]
+    
+            P0 = X_node[v0_p,:]
+            P1 = X_node[v1_p,:]
+    
+            n_p = nor[2*(e-1)+1:2*e]
+            n_m = -n_p
+    
+            I2 = Matrix{Float64}(I, 2, 2)
+            G = [1 0; 0 1; -1 -1]
+            bary = [1 0 0]
+            eta_t = mat.eta * len * (1.0/W[fi_m] + 1.0/W[fi_p]);
+    
+            for i = 1:3, j = 1:2, k = 1:3, l = 1:2
+                # minus side element
+                dFj_m = I2[:,j] * G[i,:]' * Dmi_m
+                dFl_m = I2[:,l] * G[k,:]' * Dmi_m
+                dbj_m = I2[:,j] * bary[i] - 
+                    I2[:,j] * G[i,:]' * Dmi_m * X_node[ec[fi_m,1],:]
+                dbl_m = I2[:,l] * bary[k] - 
+                    I2[:,l] * G[k,:]' * Dmi_m * X_node[ec[fi_m,1],:]
+    
+                # plus side element
+                dFj_p = I2[:,j] * G[i,:]' * Dmi_p
+                dFl_p = I2[:,l] * G[k,:]' * Dmi_p
+                dbj_p = I2[:,j] * bary[i] - 
+                    I2[:,j] * G[i,:]' * Dmi_p * X_node[ec[fi_p,1],:]
+                dbl_p = I2[:,l] * bary[k] - 
+                    I2[:,l] * G[k,:]' * Dmi_p * X_node[ec[fi_p,1],:]    
+                
+                # d/dx-^l, d/dx-^j E    
+                A_mm = dFj_m' * dFl_m + dFl_m' * dFj_m
+                B_mm = 2 * dbl_m' * dFj_m + 2 * dbj_m' * dFl_m
+                c_mm = dbj_m' * dbl_m + dbl_m' * dbj_m
+    
+                ddE_mm = quadratic_line_int(A_mm, P0, P1) + 
+                        linear_line_int(Matrix{Float64}(B_mm), P0, P1) + 
+                        const_line_int(c_mm, P0, P1)
+                push!(K0_int_I, 2*(ec[fi_m,k]-1)+l)
+                push!(K0_int_J, 2*(ec[fi_m,i]-1)+j)
+                push!(K0_int_V, 0.5 * eta_t * ddE_mm)
+    
+                # d/dx+^l, d/dx-^j E  
+                A_pm = -dFj_m' * dFl_p - dFl_p' * dFj_m
+                B_pm = 2 * -dbl_p' * dFj_m + 2 * dbj_m' * -dFl_p
+                c_pm = dbj_m' * -dbl_p + -dbl_p' * dbj_m
+    
+                ddE_pm = quadratic_line_int(A_pm, P0, P1) + 
+                        linear_line_int(Matrix{Float64}(B_pm), P0, P1) + 
+                        const_line_int(c_pm, P0, P1)
+                push!(K0_int_I, 2*(ec[fi_p,k]-1)+l)
+                push!(K0_int_J, 2*(ec[fi_m,i]-1)+j)
+                push!(K0_int_V, 0.5 * eta_t * ddE_pm)
+            
+                # d/dx-^l, d/dx+^j E  
+                A_mp = -dFj_p' * dFl_m - dFl_m' * dFj_p
+                B_mp = 2 * dbl_m' * -dFj_p + 2 * -dbj_p' * dFl_m
+                c_mp = -dbj_p' * dbl_m + dbl_m' * -dbj_p
+    
+                ddE_mp = quadratic_line_int(A_mp, P0, P1) + 
+                        linear_line_int(Matrix{Float64}(B_mp), P0, P1) + 
+                        const_line_int(c_mp, P0, P1)
+                push!(K0_int_I, 2*(ec[fi_m,k]-1)+l)
+                push!(K0_int_J, 2*(ec[fi_p,i]-1)+j)
+                push!(K0_int_V, 0.5 * eta_t * ddE_mp)
+    
+                # d/dx+^l, d/dx+^j E  
+                A_pp = dFj_p' * dFl_p + dFl_p' * dFj_p
+                B_pp = 2 * -dbl_p' * -dFj_p + 2 * -dbj_p' * -dFl_p
+                c_pp = -dbj_p' * -dbl_p + -dbl_p' * -dbj_p
+    
+                ddE_pp = quadratic_line_int(A_pp, P0, P1) + 
+                        linear_line_int(Matrix{Float64}(B_pp), P0, P1) + 
+                        const_line_int(c_pp, P0, P1)
+                push!(K0_int_I, 2*(ec[fi_p,k]-1)+l)
+                push!(K0_int_J, 2*(ec[fi_p,i]-1)+j)
+                push!(K0_int_V, 0.5 * eta_t * ddE_pp)
+    
+                if mat.DG_IP
+                    P_m = compute_PK1(F_m, mat)
+                    P_p = compute_PK1(F_p, mat)
+                    T_jm = T[4*(fi_m-1)+1:4*fi_m,2*(i-1)+j]
+                    T_jp = T[4*(fi_p-1)+1:4*fi_p,2*(i-1)+j]
+                    T_lm = T[4*(fi_m-1)+1:4*fi_m,2*(k-1)+l]
+                    T_lp = T[4*(fi_p-1)+1:4*fi_p,2*(k-1)+l]
+                    C_m = compute_C(F_m, mat)
+                    C_p = compute_C(F_p, mat)
+    
+                    # d/dx-^l, d/dx-^j E_IP
+                    B_IPmm = 0.5 * kron(n_m, dFj_m)' * (C_m * T_lm) +
+                            0.5 * kron(n_m, dFl_m)' * (C_m * T_jm)
+                    c_IPmm = 0.5 * dbj_m' * kron(n_m, I2)' * (C_m * T_lm) +
+                            0.5 * dbl_m' * kron(n_m, I2)' * (C_m * T_jm)
+                    ddE_IPmm = linear_line_int(Matrix{Float64}(B_IPmm'), P0, P1) +
+                                const_line_int(c_IPmm, P0, P1)
+                    push!(K0_int_I, 2*(ec[fi_m,k]-1)+l)
+                    push!(K0_int_J, 2*(ec[fi_m,i]-1)+j)
+                    push!(K0_int_V, 0.5 * ddE_IPmm)
+    
+                    # d/dx+^l, d/dx-^j E_IP
+                    B_IPpm = 0.5 * kron(n_m, dFj_m)' * (C_p * T_lp) -
+                            0.5 * kron(n_m, dFl_p)' * (C_m * T_jm)
+                    c_IPpm = 0.5 * dbj_m' * kron(n_m, I2)' * (C_p * T_lp) -
+                            0.5 * dbl_p' * kron(n_m, I2)' * (C_m * T_jm)
+                    ddE_IPpm = linear_line_int(Matrix{Float64}(B_IPpm'), P0, P1) +
+                                const_line_int(c_IPpm, P0, P1)
+                    push!(K0_int_I, 2*(ec[fi_p,k]-1)+l)
+                    push!(K0_int_J, 2*(ec[fi_m,i]-1)+j)
+                    push!(K0_int_V, 0.5 * ddE_IPpm)
+    
+                    # d/dx-^l, d/dx+^j E_IP
+                    B_IPmp = -0.5 * kron(n_m, dFj_p)' * (C_m * T_lm) +
+                            0.5 * kron(n_m, dFl_m)' * (C_p * T_jp)
+                    c_IPmp = -0.5 * dbj_p' * kron(n_m, I2)' * (C_m * T_lm) +
+                            0.5 * dbl_m' * kron(n_m, I2)' * (C_p * T_jp)
+                    ddE_IPmp = linear_line_int(Matrix{Float64}(B_IPmp'), P0, P1) +
+                                const_line_int(c_IPmp, P0, P1)
+                    push!(K0_int_I, 2*(ec[fi_m,k]-1)+l)
+                    push!(K0_int_J, 2*(ec[fi_p,i]-1)+j)
+                    push!(K0_int_V, 0.5 * ddE_IPmp)
+    
+                    # d/dx+^l, d/dx+^j E_IP
+                    B_IPpp = -0.5 * kron(n_m, dFj_p)' * (C_p * T_lp) -
+                            0.5 * kron(n_m, dFl_p)' * (C_p * T_jp)
+                    c_IPpp = -0.5 * dbj_p' * kron(n_m, I2)' * (C_p * T_lp) -
+                            0.5 * dbl_p' * kron(n_m, I2)' * (C_p * T_jp)
+                    ddE_IPpp = linear_line_int(Matrix{Float64}(B_IPpp'), P0, P1) +
+                                const_line_int(c_IPpp, P0, P1)
+                    push!(K0_int_I, 2*(ec[fi_p,k]-1)+l)
+                    push!(K0_int_J, 2*(ec[fi_p,i]-1)+j)
+                    push!(K0_int_V, 0.5 * ddE_IPpp)
+                end
             end
         end
 
         M = sparse(M_I, M_J, M_V, 2*N, 2*N)
-        K0 = sparse(K0_I, K0_J, K0_V, 2*N, 2*N)
+        K0_els = sparse(K0_els_I, K0_els_J, K0_els_V, 2*N, 2*N)
+        K0_int = sparse(K0_int_I, K0_int_J, K0_int_V, 2*N, 2*N)
+        K0 = K0_els + K0_int
         K_prev = spzeros(2*N, 2*N)
         f_prev = spzeros(2*N, 1)
         
         new(N, NT, dim, x_node, X_node, ec, 
             N_CG, ec_CG, DG_map, NE, int_minus_edges, int_plus_edges, interface_elem,
             x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, nor, b, T, 
-            M, K_prev, f_prev, K0, mat)
+            M, K_prev, f_prev, K0, K0_els, K0_int, mat)
     end
 end
 

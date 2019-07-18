@@ -171,19 +171,19 @@ surf_mesh = extract_surface(mesh)
 =#
 mp = Dict{String,Float64}(
     "E" => 1.0,
-    "nu" => 0.35
+    "nu" => 0.0
 )
-mat = NeohookeanMaterial(mp, 0*[0.00, 0.001], 0.005, 2.0, true)
+mat = NeohookeanMaterial(mp, 10*[0.00, 0.01], 0.005, 2.0, true)
 
 #obj = DGTriObject(mesh, mat)
 obj = CGTriObject(mesh, mat)
 #fixed = map_to_DG(obj, fixed)
 
-n_steps = 1
+n_steps = 1000
 N = obj.N
 dim = obj.dim
 
-dt = 0.01
+dt = 0.05
 #g = repeat([0.0; 0.0; -9.81], N)
 gy = 0#-9.81
 g = repeat([0.0; gy], N)
@@ -246,8 +246,8 @@ s1[1] = vts
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       #u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "ERE")
-      #u_new = ERE(u, obj, dt, fixed, g)
-      u_new = backward_euler(u, obj, dt, fixed, g, true)
+      u_new = ERE(u, obj, dt, fixed, g)
+      #u_new = backward_euler(u, obj, dt, fixed, g, false)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 

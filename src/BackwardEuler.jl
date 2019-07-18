@@ -22,17 +22,12 @@ function backward_euler(u::Vector{Float64},
     M = M[free_ind,free_ind]
     K = spzeros(n,n)
     f = zeros(n) 
-
-    if norm(obj.K_prev) == 0
-        update_pos(obj, q + v * dt)
-        K0 = compute_total_stiffness_matrix(obj)
-        K0 = K0[free_ind,free_ind]
-        println("compute K0")
-    else
-        K0 = obj.K_prev
-    end
+    
+    K0 = obj.K0[free_ind,free_ind]
     B = obj.mat.alpha * M + obj.mat.beta * K0
-
+    
+    println("norm(B) = ", norm(B))
+    
     f_ext = M * g[free_ind]
 
     max_iters = 40

@@ -30,8 +30,10 @@ function ERE(u::Vector{Float64},
     # stiffness matrix
     K = K[free_ind,free_ind]
 
+    K0 = obj.K0[free_ind, free_ind]
+
     # damping
-    B = obj.mat.alpha * M + obj.mat.beta * K
+    B = obj.mat.alpha * M + obj.mat.beta * K0
 
     # force (RHS)
     f_el = f_el[free_ind]
