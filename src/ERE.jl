@@ -25,6 +25,7 @@ function ERE(u::Vector{Float64},
     update_pos(obj, obj.x - obj.X)
 
     K = compute_total_stiffness_matrix(obj)
+ 
     f_el = compute_total_force(obj)
 
     # stiffness matrix

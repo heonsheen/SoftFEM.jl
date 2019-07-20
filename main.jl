@@ -173,11 +173,11 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.0
 )
-mat = NeohookeanMaterial(mp, 10*[0.00, 0.01], 0.005, 2.0, true)
+mat = NeohookeanMaterial(mp, 15*[0.00, 0.01], 0.005, 2.0, true)
 
-#obj = DGTriObject(mesh, mat)
-obj = CGTriObject(mesh, mat)
-#fixed = map_to_DG(obj, fixed)
+obj = DGTriObject(mesh, mat)
+#obj = CGTriObject(mesh, mat)
+fixed = map_to_DG(obj, fixed)
 
 n_steps = 1000
 N = obj.N
@@ -188,9 +188,9 @@ dt = 0.05
 gy = 0#-9.81
 g = repeat([0.0; gy], N)
 #u = zeros(N*dim*2)
-#g = map_to_DG(obj, g)
+g = map_to_DG(obj, g)
 
-#mesh = get_DG_mesh(obj)
+mesh = get_DG_mesh(obj)
 
 #limits = Makie.IRect(-5, -5, 10, 10)
 scene = Makie.Scene(resolution = (750, 750))
@@ -234,10 +234,10 @@ for j = 1:ny-1, i = 0:nx-1
       dx0[2*(p-1)+1:2*p] = dx0[2*(pd-1)+1:2*pd] + ed_new - ed
 end
 
-#dx0 = map_to_DG(obj, dx0)
+dx0 = map_to_DG(obj, dx0)
 update_pos(obj, dx0)
-update_mesh(mesh, obj)
-#mesh = get_DG_mesh(obj)
+#update_mesh(mesh, obj)
+mesh = get_DG_mesh(obj)
 vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
 s1[1] = vts
 
@@ -246,13 +246,13 @@ s1[1] = vts
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
       #u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "ERE")
-      u_new = ERE(u, obj, dt, fixed, g)
-      #u_new = backward_euler(u, obj, dt, fixed, g, false)
+      #u_new = ERE(u, obj, dt, fixed, g)
+      u_new = backward_euler(u, obj, dt, fixed, g, false)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
-      update_mesh(mesh, obj)
-      #mesh = get_DG_mesh(obj)
+      #update_mesh(mesh, obj)
+      mesh = get_DG_mesh(obj)
       #surf_mesh = extract_surface(mesh)
       #vts = [v_i.x[j] for v_i in surf_mesh.vertices, j = 1:3]
       vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]

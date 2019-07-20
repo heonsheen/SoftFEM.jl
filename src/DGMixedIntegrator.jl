@@ -36,6 +36,9 @@ function dg_mixed_integrator(u::Vector{Float64},
     M = obj.M
     M = M[free_ind,free_ind]
 
+    K0_els = obj.K0_els[free_ind, free_ind]
+    K0_int = obj.K0_int[free_ind, free_ind]
+
     obj.x = obj.X + q_new + v_new * dt
     update_pos(obj, obj.x - obj.X)
 
@@ -45,7 +48,7 @@ function dg_mixed_integrator(u::Vector{Float64},
     f_int = compute_interface_force(obj)
     f_int = f_int[free_ind]
 
-    B_int = obj.mat.alpha * M + obj.mat.beta * K_int
+    B_int = obj.mat.alpha * M + obj.mat.beta * K0_int
     f_2 = f_int - B_int*(v_new[free_ind])
 
     Dv_int = zeros(Float64,n)
@@ -85,7 +88,7 @@ function dg_mixed_integrator(u::Vector{Float64},
             K_els = K_els[free_ind,free_ind]
 
             # damping
-            B = obj.mat.alpha * M + obj.mat.beta * K_els
+            B = obj.mat.alpha * M + obj.mat.beta * K0_els
 
             # force (RHS)
             f_els = f_els[free_ind]

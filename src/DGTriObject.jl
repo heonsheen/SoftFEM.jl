@@ -50,8 +50,8 @@ mutable struct DGTriObject <: ElasticObject
 
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
-    f_prev::SparseMatrixCSC{Float64,Int64} # force vector of previous timestep
-    K0::SparseMatrixCSC{Float64,Int64} #
+    f_prev::Vector{Float64} # force vector of previous timestep
+    K0::SparseMatrixCSC{Float64,Int64}
     K0_els::SparseMatrixCSC{Float64,Int64} #
     K0_int::SparseMatrixCSC{Float64,Int64} #
 
@@ -123,9 +123,9 @@ mutable struct DGTriObject <: ElasticObject
         K0_els_J = zeros(Int64, 9*4*NT)
         K0_els_V= zeros(Float64, 9*4*NT)
 
-        K0_int_I = zeros(Int64, 9*4*NT)
-        K0_int_J = zeros(Int64, 9*4*NT)
-        K0_int_V= zeros(Float64, 9*4*NT)
+        K0_int_I = []
+        K0_int_J = []
+        K0_int_V = []
 
         Ds = zeros(dim*NT, dim)
         Dm = zeros(dim*NT, dim)
@@ -179,9 +179,12 @@ mutable struct DGTriObject <: ElasticObject
             K_t = 1/2 * (K_t + K_t')
 
             for i in 1:3, j in 1:3
-                K0_els_I[nnz+1:nnz+4] = repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
-                K0_els_J[nnz+1:nnz+4] = reshape(repeat((2*(ec[t,j]-1)+1:2*ec[t,j])', 2, 1), 4, 1)
-                K0_els_V[nnz+1:nnz+4] = reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
+                K0_els_I[nnz_els+1:nnz_els+4] = 
+                        repeat((2*(ec[t,i]-1)+1:2*ec[t,i]), 2, 1)
+                K0_els_J[nnz_els+1:nnz_els+4] = 
+                        reshape(repeat((2*(ec[t,j]-1)+1:2*ec[t,j])', 2, 1), 4, 1)
+                K0_els_V[nnz_els+1:nnz_els+4] = 
+                        reshape(K_t[2*(i-1)+1:2*i,2*(j-1)+1:2*j],4,1)
                 nnz_els += 4
             end
         end
@@ -344,10 +347,10 @@ mutable struct DGTriObject <: ElasticObject
 
         M = sparse(M_I, M_J, M_V, 2*N, 2*N)
         K0_els = sparse(K0_els_I, K0_els_J, K0_els_V, 2*N, 2*N)
-        K0_int = sparse(K0_int_I, K0_int_J, K0_int_V, 2*N, 2*N)
+        K0_int = sparse(K0_int_I, K0_int_J, Array{Float64}(K0_int_V), 2*N, 2*N)
         K0 = K0_els + K0_int
         K_prev = spzeros(2*N, 2*N)
-        f_prev = spzeros(2*N, 1)
+        f_prev = zeros(2*N)
         
         new(N, NT, dim, x_node, X_node, ec, 
             N_CG, ec_CG, DG_map, NE, int_minus_edges, int_plus_edges, interface_elem,
