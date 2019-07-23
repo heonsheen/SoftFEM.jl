@@ -61,6 +61,10 @@ function compute_C(F::Matrix{Float64}, mat::NeohookeanMaterial)
     J = det(F)
     F_inv = inv(F)
 
+    if J < 0
+        println(F)
+    end
+
     mat.mu * Array{Float64}(I,dim^2,dim^2) + 
         (mat.mu - mat.lambda * log(J)) * kron(F_inv,F_inv) + 
         mat.lambda * vec(F_inv') * vec(F_inv')'

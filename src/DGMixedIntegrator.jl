@@ -38,18 +38,23 @@ function dg_mixed_integrator(u::Vector{Float64},
 
     K0_els = obj.K0_els[free_ind, free_ind]
     K0_int = obj.K0_int[free_ind, free_ind]
+    K0 = K0_els + K0_int
 
     obj.x = obj.X + q_new + v_new * dt
     update_pos(obj, obj.x - obj.X)
 
     K_int = compute_interface_stiffness_matrix(obj)
+    #K_int = compute_total_stiffness_matrix(obj)
     K_int = K_int[free_ind, free_ind]
 
     f_int = compute_interface_force(obj)
+    #f_int = compute_total_force(obj)
     f_int = f_int[free_ind]
 
+    f_ext = M * g[free_ind]
+
     B_int = obj.mat.alpha * M + obj.mat.beta * K0_int
-    f_2 = f_int - B_int*(v_new[free_ind])
+    f_2 = f_int + f_ext - B_int*(v_new[free_ind])
 
     Dv_int = zeros(Float64,n)
     if int_int == "EX"
@@ -69,31 +74,30 @@ function dg_mixed_integrator(u::Vector{Float64},
         Dv_int[free_ind] = u_p[obj.dim*n_free+1:end] - v[free_ind]
     end
 
-    #v_new[free_ind] += Dv_int[free_ind]
+    v_new[free_ind] += Dv_int[free_ind]
 
     max_iters = 40
     iter = 0
-
+    
     if els_int == "IM"
         # Newton steps to solve the system
         # TODO: Implement line search
         while true
-            obj.x = obj.X + q_new + v_new * dt + Dv_int*dt
+            obj.x = obj.X + q_new + v_new * dt# + Dv_int*dt
             update_pos(obj, obj.x - obj.X)
-
+            
             K_els = compute_elastic_stiffness_matrix(obj)
             f_els = compute_elastic_force(obj)
-
+            
             # stiffness matrix
             K_els = K_els[free_ind,free_ind]
 
             # damping
-            B = obj.mat.alpha * M + obj.mat.beta * K0_els
+            B_els = obj.mat.alpha * M + obj.mat.beta * K0_els
 
             # force (RHS)
             f_els = f_els[free_ind]
-            f_ext = M * g[free_ind]
-            f_1 = f_els + f_ext - B*(v_new[free_ind])
+            f_1 = f_els - B_els*(v_new[free_ind])
             #=
             # parallel block diag
             Dv = zeros(Float64, n_free * obj.dim)
@@ -109,7 +113,7 @@ function dg_mixed_integrator(u::Vector{Float64},
             Dv = convert(Array, Dvs)
             =#
             
-            LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K_els) - dt*(M\B)
+            LHS = sparse(I,obj.dim*n_free,obj.dim*n_free) + dt*dt*(M\K_els) + dt*(M\B_els)
             RHS = v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt*(M\f_1)
             Dv = -LHS \ RHS
             
@@ -122,15 +126,15 @@ function dg_mixed_integrator(u::Vector{Float64},
             u_new[1:n] = q + dt * (v_new)
             u_new[n+1:end] = v_new
 
-            #println("Dv^T Dv = ", Dv'*Dv)
-            #println("residual = ", residual)
+            println("Dv^T Dv = ", Dv'*Dv)
+            println("residual = ", residual)
 
             ((Dv'*Dv <= 1e-12) || (residual <= 1e-12) || iter >= max_iters) && break
         end
         
         println("# iters = ", iter)
     end
-
+    
     #v_new[free_ind] += Dv_int[free_ind]
 
     obj.x = obj.X + q_new + v_new * dt

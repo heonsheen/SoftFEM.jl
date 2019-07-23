@@ -83,8 +83,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 5
-ny = 13
+nx = 9#5
+ny = 9#13
 dx = 1.0 / (nx-1)
 dy = 3.0 / (ny-1)
 
@@ -94,7 +94,7 @@ points = zeros(Float64, nx*ny, 2)
 for j = 0:ny-1, i = 0:nx-1
       x = i + j*nx + 1
       points[x, :] = [-0.5 + i*dx, -0.5 + j*dy]
-      if j == 0#ny-1
+      if j == ny-1#0
             for d = 1:2
                   fixed[2*(x-1)+d] = true
             end
@@ -173,7 +173,7 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.0
 )
-mat = NeohookeanMaterial(mp, 15*[0.00, 0.01], 0.005, 2.0, true)
+mat = NeohookeanMaterial(mp, 5*[0.00, 0.01], 0.005, 2.0, false)
 
 obj = DGTriObject(mesh, mat)
 #obj = CGTriObject(mesh, mat)
@@ -185,7 +185,7 @@ dim = obj.dim
 
 dt = 0.05
 #g = repeat([0.0; 0.0; -9.81], N)
-gy = 0#-9.81
+gy = -9.81
 g = repeat([0.0; gy], N)
 #u = zeros(N*dim*2)
 g = map_to_DG(obj, g)
@@ -217,18 +217,18 @@ Makie.update_cam!(scene, camera,
       GT.HyperRectangle{2,Float32}(Float32[-2.5, -1], Float32[5, 5]))
 =#
 camera = Makie.cameracontrols(scene)
-camera.area[] = GT.HyperRectangle{2,Float32}(Float32[-6, -1], Float32[12, 4])
+camera.area[] = GT.HyperRectangle{2,Float32}(Float32[-3, -3], Float32[6, 6])#Float32[-6, -1], Float32[12, 4])
 Makie.update_cam!(scene, camera)
-
+#=
 dx0 = zeros(Float64, 2*nx*ny)
 for j = 1:ny-1, i = 0:nx-1
       p = i + j*nx + 1
       pd = i + (j-1)*nx + 1
       ed = points[p,:] - points[pd,:]
 
-      theta = -(j) * 0.7 * pi / (ny-1)
+      theta = -(j) * 0.5 * pi / (ny-1)
       rot = [cos(theta) -sin(theta); sin(theta) cos(theta)]
-      ed_new = rot * ed * (1 + (nx/2 - i) / (1.2*nx))
+      ed_new = rot * ed * (1 + (nx/2 - i) / (1.5*nx))
       #ed_new[1] += 0.1
 
       dx0[2*(p-1)+1:2*p] = dx0[2*(pd-1)+1:2*pd] + ed_new - ed
@@ -240,14 +240,14 @@ update_pos(obj, dx0)
 mesh = get_DG_mesh(obj)
 vts = [v_i.x[j] for v_i in mesh.vertices, j = 1:2]
 s1[1] = vts
-
+=#
 #for timestep = 1:n_steps
 #while true
 Makie.record(scene, "results/video.mp4", 1:n_steps) do timestep
       u = [obj.x - obj.X; obj.v]
-      #u_new = dg_mixed_integrator(u, obj, dt, dg_fixed, dg_g, "IM", "ERE")
+      u_new = dg_mixed_integrator(u, obj, dt, fixed, g, "IM", "ERE")
       #u_new = ERE(u, obj, dt, fixed, g)
-      u_new = backward_euler(u, obj, dt, fixed, g, false)
+      #u_new = backward_euler(u, obj, dt, fixed, g, false)
       dx = u_new[1:N*dim]
       v = u_new[N*dim+1:end]
 
