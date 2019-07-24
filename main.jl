@@ -83,8 +83,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 9#5
-ny = 9#13
+nx = 2#5
+ny = 2#13
 dx = 1.0 / (nx-1)
 dy = 3.0 / (ny-1)
 
@@ -171,9 +171,9 @@ surf_mesh = extract_surface(mesh)
 =#
 mp = Dict{String,Float64}(
     "E" => 1.0,
-    "nu" => 0.0
+    "nu" => 0.45
 )
-mat = NeohookeanMaterial(mp, 5*[0.00, 0.01], 0.005, 2.0, false)
+mat = NeohookeanMaterial(mp, 10*[0.00, 0.01], 0.015, 2.0, true)
 
 obj = DGTriObject(mesh, mat)
 #obj = CGTriObject(mesh, mat)

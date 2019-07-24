@@ -51,6 +51,8 @@ mutable struct DGTriObject <: ElasticObject
     M::SparseMatrixCSC{Float64,Int64} # Mass matrix
     K_prev::SparseMatrixCSC{Float64,Int64} # Stiffness matrix of previous timestep
     f_prev::Vector{Float64} # force vector of previous timestep
+    v_int_prev::Vector{Float64} # Previous timestep velocity interface component
+    v_els_prev::Vector{Float64} # Previous timestep velocity elasticity component
     K0::SparseMatrixCSC{Float64,Int64}
     K0_els::SparseMatrixCSC{Float64,Int64} #
     K0_int::SparseMatrixCSC{Float64,Int64} #
@@ -351,11 +353,14 @@ mutable struct DGTriObject <: ElasticObject
         K0 = K0_els + K0_int
         K_prev = spzeros(2*N, 2*N)
         f_prev = zeros(2*N)
+        # Right now, both initial velocity components are set to 0
+        v_int_prev = zeros(2*N)
+        v_els_prev = zeros(2*N)
         
         new(N, NT, dim, x_node, X_node, ec, 
             N_CG, ec_CG, DG_map, NE, int_minus_edges, int_plus_edges, interface_elem,
             x, X, v, Ds, Dm, Dm_inv, F, F_inv, dF, W, L, nor, b, T, 
-            M, K_prev, f_prev, K0, K0_els, K0_int, mat)
+            M, K_prev, f_prev, v_int_prev, v_els_prev, K0, K0_els, K0_int, mat)
     end
 end
 
