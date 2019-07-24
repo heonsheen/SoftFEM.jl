@@ -84,7 +84,7 @@ function dg_mixed_integrator(u::Vector{Float64},
     end
 
     #println(Dv_int)
-    obj.v_int_prev[free_ind] += Dv_int[free_ind]
+    vp_int[free_ind] += Dv_int[free_ind]
     v_new[free_ind] += Dv_int[free_ind]
     u_new[full_fi] += Du_int[full_fi]
 
@@ -98,7 +98,7 @@ function dg_mixed_integrator(u::Vector{Float64},
         # Newton steps to solve the system
         # TODO: Implement line search
         while true
-            obj.x = obj.X + q_new + v_new * dt
+            obj.x = obj.X + q_new + vp_int * dt + vn_els * dt#+ v_new * dt
             update_pos(obj, obj.x - obj.X)
             
             K_els = compute_elastic_stiffness_matrix(obj)
@@ -109,7 +109,7 @@ function dg_mixed_integrator(u::Vector{Float64},
 
             # force (RHS)
             f_els = f_els[free_ind]
-            f_1 = f_els + f_ext - B*(vn_els[free_ind])
+            f_1 = f_els + f_ext - B*(v_new[free_ind])
             #=
             # parallel block diag
             Dv = zeros(Float64, n_free * obj.dim)
@@ -130,24 +130,11 @@ function dg_mixed_integrator(u::Vector{Float64},
             RHS = v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt*(M\f_1)
             Dv = -LHS \ RHS
             
-            #=
-            J = [In -dt*In; 
-                zeros(obj.dim*n_free,obj.dim*n_free) In + dt*dt*(M\K_els) + dt*(M\B)]
-            G = u_new[full_fi] - u[full_fi] - Du_int[full_fi] - 
-                dt*[vn_els[free_ind]; M\f_1]
-            Du = -J \ G
-            =#
             v_new[free_ind] += Dv
             vn_els[free_ind] += Dv
-            #=
-            u_new[full_fi] += Du
-            v_new[free_ind] += Du[obj.dim*n_free+1:end]
-            vn_els[free_ind] += Du[obj.dim*n_free+1:end]
-            =#
+
             residual = (v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt * (M\f_1))' * 
                         (v_new[free_ind] - v[free_ind] - Dv_int[free_ind] - dt * (M\f_1))
-            #residual = (u_new[full_fi] - u[full_fi] - Du_int[full_fi] - dt*[vn_els[free_ind]; M\f_1])' * 
-            #            (u_new[full_fi] - u[full_fi] - Du_int[full_fi] - dt*[vn_els[free_ind]; M\f_1])
             
             iter = iter + 1
             
@@ -155,7 +142,6 @@ function dg_mixed_integrator(u::Vector{Float64},
             u_new[n+1:end] = v_new
 
             println("Dv^T Dv = ", Dv'*Dv)
-            #println("Dv^T Dv = ", Du'*Du)
             println("residual = ", residual)
 
             ((Dv'*Dv <= 1e-12) || (residual <= 1e-12) || iter >= max_iters) && break

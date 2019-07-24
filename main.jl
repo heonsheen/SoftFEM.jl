@@ -83,8 +83,8 @@ ec = [2 3 7 6;
       6 5 1 4]
 =#
 
-nx = 2#5
-ny = 2#13
+nx = 5#5
+ny = 5#13
 dx = 1.0 / (nx-1)
 dy = 3.0 / (ny-1)
 
@@ -173,13 +173,13 @@ mp = Dict{String,Float64}(
     "E" => 1.0,
     "nu" => 0.45
 )
-mat = NeohookeanMaterial(mp, 10*[0.00, 0.01], 0.015, 2.0, true)
+mat = NeohookeanMaterial(mp, 7*[0.00, 0.01], 0.015, 2.0, false)
 
 obj = DGTriObject(mesh, mat)
 #obj = CGTriObject(mesh, mat)
 fixed = map_to_DG(obj, fixed)
 
-n_steps = 1000
+n_steps = 100
 N = obj.N
 dim = obj.dim
 
